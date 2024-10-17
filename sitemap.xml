@@ -4,4 +4,8 @@
     <loc>https://lineofflig.ht/</loc>
     <priority>1.0</priority>
   </url>
+  <url>
+    <loc>https://lineofflig.ht/join</loc>
+    <priority>1.0</priority>
+  </url>
 </urlset>
