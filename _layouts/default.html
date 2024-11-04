@@ -1,0 +1,54 @@
+---
+layout: compress
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="{{ page.description }}" />
+    <meta property="og:title" content="Line of Flight" />
+    <meta property="og:description" content="{{ page.description }}" />
+    <meta property="og:image" content="{{ site.url }}/card.jpg" />
+    <meta property="og:url" content="{{ site.url }}{{ page.url }}" />
+    <meta name="twitter:card" content="{{ site.url }}/card.jpg" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <title>Line of Flight | {{ page.title }}</title>
+    <link rel="stylesheet" href="https://fonts.xz.style/serve/inter.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@exampledev/new.css@latest/new.min.css"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Line of Flight B.V.",
+        "url": "{{ site.url }}",
+        "logo": "https://lineofflig.ht/17c6170a.jpg",
+        "contactPoint": [
+          {
+            "@type": "ContactPoint",
+            "email": "hi@lineofflig.ht",
+            "contactType": "General Inquiry"
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <header>
+      <h1>Line of Flight</h1>
+      <a href="/">Home</a>
+      /
+      <a href="/join/">Join</a>
+    </header>
+    {{ content }}
+    <br />
+    <hr />
+    <small>&copy; 2024, Line of of Flight B.V.</small>
+  </body>
+</html>
