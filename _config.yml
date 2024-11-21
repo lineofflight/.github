@@ -1,4 +1,5 @@
 exclude:
   - CNAME
   - Gemfile*
-url: "https://lineofflig.ht"
+title: Line of Flight
+url: https://lineofflig.ht
