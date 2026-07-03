@@ -1,5 +1,7 @@
 exclude:
   - CNAME
   - Gemfile*
+  - mise.toml
+  - script
 title: Line of Flight
 url: https://lineofflig.ht
