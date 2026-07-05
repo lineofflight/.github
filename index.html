@@ -1,11 +1,54 @@
 ---
 layout: default
 title: Home
-description: Line of Flight is a commerce tech company based in Amsterdam.
+description: "We are shaping the future of programmable commerce."
 ---
 
-<img
-    src="/have-your-agent-call-my-agent.svg?v={{ site.time | date: '%s' }}"
-    alt="pixel rendering of the words: have your agent call my agent. thanks, bluefish."
-    style="width: 100%; max-width: 30rem"
-/>
+<div id="agent-response"></div>
+<noscript>Have your agent call my agent.</noscript>
+
+<!-- thanks, bluefish. -->
+<script>
+    (function () {
+        var responseEl = document.getElementById("agent-response");
+        var finalText = document.querySelector("noscript").textContent;
+
+        function showfinalText() {
+            responseEl.textContent = finalText;
+        }
+
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            showfinalText();
+            return;
+        }
+
+        function chunkWords(text, rand) {
+            var words = text.split(" ");
+            var chunks = [];
+            var i = 0;
+            while (i < words.length) {
+                var size = 1 + Math.floor(rand() * 3);
+                chunks.push(words.slice(i, i + size).join(" "));
+                i += size;
+            }
+            return chunks;
+        }
+
+        function streamResponse() {
+            var chunks = chunkWords(finalText, Math.random);
+            var index = 0;
+            function next() {
+                if (index >= chunks.length) {
+                    return;
+                }
+                var text = (index === 0 ? "" : " ") + chunks[index];
+                responseEl.appendChild(document.createTextNode(text));
+                index += 1;
+                setTimeout(next, Math.random() * 400);
+            }
+            next();
+        }
+
+        setTimeout(streamResponse, Math.random() * 400);
+    })();
+</script>
