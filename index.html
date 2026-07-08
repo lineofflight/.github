@@ -4,6 +4,11 @@ title: Home
 description: "We are shaping the future of programmable commerce."
 ---
 
+<img
+    src="/line-of-flight.gif?v={{ site.time | date: '%s' }}"
+    alt="quirky character with purple hair, colorful outfit, and friendly smile"
+/>
+
 <div id="agent-response"></div>
 <noscript>Have your agent call my agent.</noscript>
 
@@ -49,6 +54,6 @@ description: "We are shaping the future of programmable commerce."
             next();
         }
 
-        setTimeout(streamResponse, Math.random() * 400);
+        setTimeout(streamResponse, 1000 + Math.random() * 1000);
     })();
 </script>
