@@ -1,0 +1,165 @@
+<canvas
+    id="lofi-char"
+    style="position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;"
+    aria-hidden="true"
+    {% if include.figure %}data-figure="{{ include.figure }}"{% endif %}
+></canvas>
+
+<script>
+    (function () {
+        var canvas = document.getElementById("lofi-char");
+        if (!canvas) return;
+        var ctx = canvas.getContext("2d");
+
+        /* Coarse grid and 4 levels per channel for the lo-fi look */
+        var sw = 56;
+        var sh = Math.round(sw * 274 / 375);
+        var step = 85;
+
+        /* Sub-cell offsets, in grid cells. Resampling at each one shifts the
+           edge pixels a little, like line boil in hand-drawn animation. */
+        var offsets = [[0, 0], [0.35, 0.2], [-0.25, 0.3], [0.2, -0.3]];
+
+        var frames = [];
+        var currentFrame = 0;
+        var prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        /* Average the source pixels under each cell ourselves rather than letting the
+           browser downscale, so every browser gets the same pixels and the sub-cell
+           offsets always shift the sampling */
+        function pixelate(src, dx, dy) {
+            var off = document.createElement("canvas");
+            off.width = sw;
+            off.height = sh;
+            var octx = off.getContext("2d");
+            var out = octx.createImageData(sw, sh);
+            var s = src.data;
+            var d = out.data;
+            var bw = src.width / sw;
+            var bh = src.height / sh;
+            for (var y = 0; y < sh; y++) {
+                for (var x = 0; x < sw; x++) {
+                    var x0 = Math.max(0, Math.round((x + dx) * bw));
+                    var x1 = Math.min(src.width, Math.round((x + 1 + dx) * bw));
+                    var y0 = Math.max(0, Math.round((y + dy) * bh));
+                    var y1 = Math.min(src.height, Math.round((y + 1 + dy) * bh));
+                    var r = 0, g = 0, b = 0, n = 0;
+                    for (var v = y0; v < y1; v++) {
+                        for (var u = x0; u < x1; u++) {
+                            var j = (v * src.width + u) * 4;
+                            r += s[j];
+                            g += s[j + 1];
+                            b += s[j + 2];
+                            n++;
+                        }
+                    }
+                    if (!n) continue;
+                    r /= n;
+                    g /= n;
+                    b /= n;
+                    /* Knock out near-white paper background and scanner margins */
+                    if ((r > 218 && g > 220 && b > 220) || x < sw * 0.056 || x > sw * 0.952 || y < sh * 0.033) continue;
+                    var i = (y * sw + x) * 4;
+                    d[i] = Math.round(r / step) * step;
+                    d[i + 1] = Math.round(g / step) * step;
+                    d[i + 2] = Math.round(b / step) * step;
+                    d[i + 3] = 255;
+                }
+            }
+            octx.putImageData(out, 0, 0);
+            return off;
+        }
+
+        /* Pages without a figure get the border alone */
+        if (canvas.dataset.figure) {
+            var img = new Image();
+            img.onload = function () {
+                var full = document.createElement("canvas");
+                full.width = img.naturalWidth;
+                full.height = img.naturalHeight;
+                var fctx = full.getContext("2d");
+                fctx.drawImage(img, 0, 0);
+                var src = fctx.getImageData(0, 0, full.width, full.height);
+                frames = offsets.map(function (o) { return pixelate(src, o[0], o[1]); });
+                render();
+                if (!prefersReduced) setTimeout(tick, 600);
+            };
+            img.src = canvas.dataset.figure;
+        }
+
+        var grid = null;
+
+        function resize() {
+            var dpr = window.devicePixelRatio || 1;
+            var w = canvas.width = Math.round(canvas.clientWidth * dpr);
+            var h = canvas.height = Math.round(canvas.clientHeight * dpr);
+            /* Block size the figure needs to cover the screen, capped so narrow
+               screens still get at least 32 columns for the border grid */
+            var cover = Math.max(w / sw, h / sh);
+            var block = Math.max(1, Math.min(Math.ceil(cover), Math.floor(w / 32)));
+            /* Whole blocks that cover the screen, overflowing each edge by less than a block */
+            var cols = Math.ceil(w / block);
+            var rows = Math.ceil(h / block);
+            grid = {
+                block: block,
+                cols: cols,
+                rows: rows,
+                /* Each figure pixel spans a whole number of grid blocks */
+                scale: Math.ceil(cover / block),
+                x: Math.floor((w - cols * block) / 2),
+                y: Math.floor((h - rows * block) / 2)
+            };
+            /* Line page content up one block inside the border */
+            var root = document.documentElement.style;
+            root.setProperty("--inset-x", (grid.x + 3 * block) / dpr + "px");
+            root.setProperty("--inset-y", (grid.y + 3 * block) / dpr + "px");
+            render();
+        }
+
+        function render() {
+            if (!grid) return;
+            var b = grid.block;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            var frame = frames[currentFrame];
+            if (frame) {
+                /* Cover the grid, centered on whole blocks */
+                var n = grid.scale;
+                var col = Math.floor((grid.cols - sw * n) / 2);
+                var row = Math.floor((grid.rows - sh * n) / 2);
+                ctx.imageSmoothingEnabled = false;
+                ctx.globalAlpha = 0.35;
+                ctx.drawImage(frame, grid.x + col * b, grid.y + row * b, sw * n * b, sh * n * b);
+            }
+
+            /* Border sits on top, on the second ring of blocks */
+            var bx = grid.x + b;
+            var by = grid.y + b;
+            var bw = (grid.cols - 2) * b;
+            var bh = (grid.rows - 2) * b;
+            ctx.fillStyle = getComputedStyle(document.body).color;
+            ctx.beginPath();
+            ctx.rect(bx, by, bw, bh);
+            ctx.rect(bx + b, by + b, bw - 2 * b, bh - 2 * b);
+            /* Punch out the figure underneath so the border reads as one flat tone */
+            ctx.globalCompositeOperation = "destination-out";
+            ctx.globalAlpha = 1;
+            ctx.fill("evenodd");
+            ctx.globalCompositeOperation = "source-over";
+            ctx.globalAlpha = 0.45;
+            ctx.fill("evenodd");
+        }
+
+        function tick() {
+            /* Jump to a different frame at random so the boil never reads as a loop */
+            currentFrame = (currentFrame + 1 + Math.floor(Math.random() * (frames.length - 1))) % frames.length;
+            render();
+            setTimeout(tick, 600);
+        }
+
+        window.addEventListener("resize", resize);
+        /* Redraw when the time-of-day tint changes the text colour the border uses */
+        window.addEventListener("daylight", render);
+        resize();
+    })();
+</script>

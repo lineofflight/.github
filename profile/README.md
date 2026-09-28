@@ -1,3 +1,5 @@
-# Line of Flight 👋
+![Line of Flight](https://lineofflig.ht/line-of-flight.gif)
 
-https://lineofflig.ht/join
+Agentic commerce and other things.
+
+https://lineofflig.ht

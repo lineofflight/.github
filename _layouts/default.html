@@ -30,11 +30,282 @@ layout: compress
       sizes="16x16"
       href="/favicon-16x16.png?v={{ site.time | date: '%s' }}"
     />
-    <link rel="stylesheet" href="https://fonts.xz.style/serve/inter.css" />
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@exampledev/new.css@latest/new.min.css"
-    />
+    <style>
+      @font-face {
+        font-family: "iA Writer Quattro";
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+        src: url("/fonts/iAWriterQuattroS-Regular.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "iA Writer Quattro";
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+        src: url("/fonts/iAWriterQuattroS-Bold.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "iA Writer Mono";
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+        src: url("/fonts/iAWriterMonoS-Regular.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "iA Writer Mono";
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+        src: url("/fonts/iAWriterMonoS-Bold.woff2") format("woff2");
+      }
+      :root {
+        color-scheme: light dark;
+      }
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        height: 100dvh;
+        margin: 0;
+        padding: var(--inset-y, clamp(1.25rem, 3vw, 2.5rem)) var(--inset-x, clamp(1.25rem, 3vw, 2.5rem));
+        font-family: "iA Writer Quattro", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 18px;
+        line-height: 1.6;
+        color: CanvasText;
+        background-color: var(--bg, Canvas);
+        -webkit-font-smoothing: antialiased;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 0.5rem 1rem;
+        font-family: "iA Writer Mono", monospace;
+      }
+      header nav {
+        display: flex;
+        margin-left: auto;
+        gap: 1rem;
+        font-size: 0.95rem;
+      }
+      header nav a {
+        color: color-mix(in srgb, currentColor 60%, transparent);
+        text-decoration: none;
+      }
+      header nav a:hover {
+        color: currentColor;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      /* Header and footer stay put inside the border; only the middle scrolls */
+      main {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        margin: 4.5rem 0 3rem;
+      }
+      img {
+        max-width: min(100%, 60vw);
+        height: auto;
+        display: block;
+        margin: 0 0.5rem 2rem;
+      }
+      p {
+        margin: 0 0 1.25rem;
+      }
+      p.lead {
+        font-size: clamp(2rem, 4.5vw, 3.25rem);
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+      }
+      a {
+        color: inherit;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      footer {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 0.5rem 1rem;
+        font-family: "iA Writer Mono", monospace;
+        font-size: 0.9rem;
+        color: color-mix(in srgb, currentColor 55%, transparent);
+      }
+      footer a {
+        margin-left: auto;
+        color: inherit;
+      }
+      footer span {
+        white-space: nowrap;
+      }
+      /* Near-opaque panels keep text readable over the background art */
+      header nav,
+      p,
+      footer > * {
+        width: fit-content;
+        padding: 0.15em 0.5rem;
+        background: color-mix(in srgb, var(--bg, Canvas) 90%, transparent);
+      }
+      /* Time-of-day dial, drawn in 4px blocks: a 24-hour clock with midnight at the
+         top, running clockwise, with the hour in the middle */
+      .dial {
+        width: 68px;
+        height: 68px;
+        image-rendering: pixelated;
+        background: color-mix(in srgb, var(--bg, Canvas) 90%, transparent);
+        cursor: grab;
+        touch-action: none;
+      }
+      .dial:active {
+        cursor: grabbing;
+      }
+    </style>
+    <script>
+      (function () {
+        /* The background follows the light of the day, across the whole range and
+           regardless of the system light or dark setting: dark night, violet blue hour,
+           rose dawn, golden morning, white noon, golden hour, coral sunset, violet dusk.
+           Keyframes are OKLCH, blended in OKLab so the steps between them look
+           perceptually even. */
+        var root = document.documentElement;
+        var sky = [
+          [0, "0.16 0.02 265"],
+          [5.5, "0.18 0.025 280"],
+          [6.5, "0.88 0.035 20"],
+          [8, "0.96 0.025 75"],
+          [13, "1 0 0"],
+          [18, "0.95 0.035 70"],
+          [19.5, "0.86 0.04 35"],
+          [20.5, "0.3 0.04 290"],
+          [22, "0.18 0.025 270"],
+          [24, "0.16 0.02 265"]
+        ];
+        var shown = 0;
+        var held = false;
+
+        function now() {
+          var d = new Date();
+          return d.getHours() + d.getMinutes() / 60;
+        }
+
+        function tint(hour) {
+          shown = (hour % 24 + 24) % 24;
+          var i = 1;
+          while (sky[i][0] < shown) i++;
+          var a = sky[i - 1];
+          var b = sky[i];
+          var t = (shown - a[0]) / (b[0] - a[0]);
+          var lightness = parseFloat(a[1]) * (1 - t) + parseFloat(b[1]) * t;
+          root.style.setProperty("--bg", "color-mix(in oklab, oklch(" + a[1] + ") " + ((1 - t) * 100).toFixed(1) + "%, oklch(" + b[1] + "))");
+          /* Flip to light text where black and white contrast equally with the background */
+          root.style.colorScheme = lightness < 0.565 ? "dark" : "light";
+          window.dispatchEvent(new Event("daylight"));
+        }
+
+        tint(now());
+        setInterval(function () {
+          if (!held) tint(now());
+        }, 60000);
+
+        document.addEventListener("DOMContentLoaded", function () {
+          var dial = document.querySelector(".dial");
+          if (!dial) return;
+          var ctx = dial.getContext("2d");
+          var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          var idle = null;
+
+          /* 3 by 5 pixel digits, row by row */
+          var glyphs = [
+            "111101101101111", "010110010010111", "111001111100111", "111001111001111", "101101111001001",
+            "111100111001111", "111100111101111", "111001001001001", "111101111101111", "111101111001111"
+          ];
+
+          function draw() {
+            var h = Math.floor(shown);
+            var m = Math.floor((shown - h) * 60);
+            dial.setAttribute("aria-valuenow", h);
+            dial.setAttribute("aria-valuetext", (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m);
+
+            ctx.clearRect(0, 0, 17, 17);
+            ctx.fillStyle = getComputedStyle(document.body).color;
+            /* Faint ring of blocks, with ticks at 0, 6, 12 and 18 */
+            ctx.globalAlpha = 0.3;
+            for (var y = 0; y < 17; y++) {
+              for (var x = 0; x < 17; x++) {
+                if (Math.abs(Math.hypot(x - 8, y - 8) - 7) < 0.5) ctx.fillRect(x, y, 1, 1);
+              }
+            }
+            ctx.fillRect(8, 0, 1, 1);
+            ctx.fillRect(16, 8, 1, 1);
+            ctx.fillRect(8, 16, 1, 1);
+            ctx.fillRect(0, 8, 1, 1);
+            /* Marker, 3 by 3, on the ring */
+            var angle = shown / 12 * Math.PI;
+            var sx = Math.round(8 + 7 * Math.sin(angle));
+            var sy = Math.round(8 - 7 * Math.cos(angle));
+            ctx.globalAlpha = 0.8;
+            ctx.fillRect(sx - 1, sy - 1, 3, 3);
+            /* Hour in the middle, 00 to 23 */
+            [Math.floor(h / 10), h % 10].forEach(function (d, n) {
+              for (var i = 0; i < 15; i++) {
+                if (glyphs[d][i] === "1") ctx.fillRect(5 + n * 4 + i % 3, 6 + Math.floor(i / 3), 1, 1);
+              }
+            });
+          }
+
+          /* Ease back to the real time of day, the short way round the clock */
+          function settle() {
+            held = false;
+            var from = shown;
+            var delta = ((now() - from + 36) % 24) - 12;
+            if (reduced) return tint(from + delta);
+            var start = performance.now();
+            requestAnimationFrame(function step(t) {
+              if (held) return;
+              var p = Math.min(1, (t - start) / 1200);
+              tint(from + delta * (1 - Math.pow(1 - p, 3)));
+              if (p < 1) requestAnimationFrame(step);
+            });
+          }
+
+          /* Midnight at the top, clockwise */
+          function point(e) {
+            var r = dial.getBoundingClientRect();
+            var angle = Math.atan2(e.clientX - r.left - r.width / 2, r.top + r.height / 2 - e.clientY);
+            tint(angle / Math.PI * 12);
+          }
+
+          dial.addEventListener("pointerdown", function (e) {
+            held = true;
+            dial.setPointerCapture(e.pointerId);
+            point(e);
+          });
+          dial.addEventListener("pointermove", function (e) {
+            if (held) point(e);
+          });
+          dial.addEventListener("pointerup", settle);
+          dial.addEventListener("pointercancel", settle);
+          dial.addEventListener("keydown", function (e) {
+            var step = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
+            if (!step) return;
+            e.preventDefault();
+            held = true;
+            tint(shown + step);
+            clearTimeout(idle);
+            idle = setTimeout(settle, 1500);
+          });
+          window.addEventListener("daylight", draw);
+          draw();
+        });
+      })();
+    </script>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -45,7 +316,7 @@ layout: compress
         "contactPoint": [
           {
             "@type": "ContactPoint",
-            "email": "hi@lineofflig.ht",
+            "email": "company@lineofflig.ht",
             "contactType": "General Inquiry"
           }
         ],
@@ -58,16 +329,24 @@ layout: compress
     <title>{{ site.title }} | {{ page.title }}</title>
   </head>
   <body>
+    {% include frame.html figure=page.figure %}
     <header>
-      <h1>Line of Flight</h1>
-      <a href="/">Home</a>
-      /
-      <a href="https://github.com/lineofflight" target="_blank" rel="noopener"
-        >GitHub</a
-      >
-      /
-      <a href="/join">Join</a>
+      <canvas class="dial" width="17" height="17" role="slider" tabindex="0" aria-label="Time of day" aria-valuemin="0" aria-valuemax="23" title="Time of day"></canvas>
+      <nav>
+        <a href="https://github.com/lineofflight" target="_blank" rel="noopener">GitHub</a>
+      </nav>
     </header>
-    {{ content }}
+    <main>
+      {{ content }}
+    </main>
+    <footer>
+      <div>
+        <span>Line of Flight B.V. |</span>
+        <span>Amsterdam |</span>
+        <span>KvK 90477014 |</span>
+        <span>VAT NL865329564B01</span>
+      </div>
+      <a href="mailto:company@lineofflig.ht">company@lineofflig.ht</a>
+    </footer>
   </body>
 </html>

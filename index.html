@@ -1,59 +1,19 @@
 ---
 layout: default
 title: Home
-description: "We are shaping the future of programmable commerce."
+description: "Line of Flight is an Amsterdam-based software startup. Agentic commerce and other things."
+figure: /17c6170b.jpg
 ---
 
-<img
-    src="/line-of-flight.gif?v={{ site.time | date: '%s' }}"
-    alt="quirky character with purple hair, colorful outfit, and friendly smile"
-/>
+<noscript>
+    <img
+        src="/17c6170a.jpg"
+        alt="quirky character with purple hair, colorful outfit, and friendly smile"
+        width="375"
+        height="274"
+    />
+</noscript>
 
-<div id="agent-response"></div>
-<noscript>Have your agent call my agent.</noscript>
-
-<!-- thanks, bluefish. -->
-<script>
-    (function () {
-        var responseEl = document.getElementById("agent-response");
-        var finalText = document.querySelector("noscript").textContent;
-
-        function showfinalText() {
-            responseEl.textContent = finalText;
-        }
-
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-            showfinalText();
-            return;
-        }
-
-        function chunkWords(text, rand) {
-            var words = text.split(" ");
-            var chunks = [];
-            var i = 0;
-            while (i < words.length) {
-                var size = 1 + Math.floor(rand() * 3);
-                chunks.push(words.slice(i, i + size).join(" "));
-                i += size;
-            }
-            return chunks;
-        }
-
-        function streamResponse() {
-            var chunks = chunkWords(finalText, Math.random);
-            var index = 0;
-            function next() {
-                if (index >= chunks.length) {
-                    return;
-                }
-                var text = (index === 0 ? "" : " ") + chunks[index];
-                responseEl.appendChild(document.createTextNode(text));
-                index += 1;
-                setTimeout(next, Math.random() * 400);
-            }
-            next();
-        }
-
-        setTimeout(streamResponse, 1000 + Math.random() * 1000);
-    })();
-</script>
+<p class="lead">
+    Line of Flight >:
+</p>
