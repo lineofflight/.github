@@ -81,7 +81,7 @@ layout: compress
       }
       header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         flex-wrap: wrap;
         justify-content: space-between;
         gap: 0.5rem 1rem;
@@ -90,17 +90,29 @@ layout: compress
       header nav {
         display: flex;
         margin-left: auto;
-        gap: 1rem;
-        font-size: 0.95rem;
       }
       header nav a {
-        color: color-mix(in srgb, currentColor 60%, transparent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        color: inherit;
+        background: color-mix(in srgb, var(--bg, Canvas) 90%, transparent);
         text-decoration: none;
       }
-      header nav a:hover {
-        color: currentColor;
-        text-decoration: underline;
-        text-underline-offset: 3px;
+      .github-pixel {
+        --pixel-delay: 0ms;
+        opacity: 0.3;
+        transition: opacity 50ms steps(1, end) var(--pixel-delay);
+      }
+      header nav a:is(:hover, :focus-visible) .github-pixel {
+        opacity: 0.8;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .github-pixel {
+          transition: none;
+        }
       }
       /* Header and footer stay put inside the border; only the middle scrolls */
       main {
@@ -138,6 +150,67 @@ layout: compress
         font-size: 0.9rem;
         color: color-mix(in srgb, currentColor 55%, transparent);
       }
+      :root {
+        --company-name-day: repeating-linear-gradient(
+          90deg in srgb,
+          #ed2346 0%,
+          #f27713 6.25%,
+          #e3c000 12.5%,
+          #0baa4b 18.75%,
+          #009dc4 25%,
+          #175cf4 31.25%,
+          #713bdc 37.5%,
+          #cb249d 43.75%,
+          #ed2346 50%
+        );
+        --company-name-night: linear-gradient(
+          90deg,
+          color-mix(in srgb, currentColor 35%, transparent) 0%,
+          color-mix(in srgb, currentColor 35%, transparent) 8%,
+          oklch(0.78 0.24 285) 13%,
+          oklch(0.80 0.22 250) 18%,
+          oklch(0.82 0.20 205) 23%,
+          oklch(0.82 0.24 145) 28%,
+          oklch(0.85 0.22 80) 33%,
+          oklch(0.80 0.26 25) 38%,
+          color-mix(in srgb, currentColor 35%, transparent) 43%,
+          color-mix(in srgb, currentColor 35%, transparent) 58%,
+          oklch(0.78 0.24 285) 63%,
+          oklch(0.80 0.22 250) 68%,
+          oklch(0.82 0.20 205) 73%,
+          oklch(0.82 0.24 145) 78%,
+          oklch(0.85 0.22 80) 83%,
+          oklch(0.80 0.26 25) 88%,
+          color-mix(in srgb, currentColor 35%, transparent) 93%,
+          color-mix(in srgb, currentColor 35%, transparent) 100%
+        );
+      }
+      footer .company-name {
+        display: inline-block;
+        color: CanvasText;
+        background-image: var(--company-name-gradient, var(--company-name-day));
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: strobe 1.4s linear infinite;
+      }
+      @keyframes strobe {
+        0% {
+          background-position: 100% 0;
+        }
+        100% {
+          background-position: 0% 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        footer .company-name {
+          animation: none;
+          background-image: none;
+          -webkit-text-fill-color: currentColor;
+          color: inherit;
+        }
+      }
       footer a {
         margin-left: auto;
         color: inherit;
@@ -146,7 +219,6 @@ layout: compress
         white-space: nowrap;
       }
       /* Near-opaque panels keep text readable over the background art */
-      header nav,
       p,
       footer > * {
         width: fit-content;
@@ -195,6 +267,17 @@ layout: compress
           return d.getHours() + d.getMinutes() / 60;
         }
 
+        function updateGreeting(h) {
+          var el = document.getElementById("greeting");
+          if (!el) return;
+          var text = "Still up?";
+          if (h >= 5 && h < 8) text = "Early start?";
+          else if (h >= 8 && h < 12) text = "Good morning.";
+          else if (h >= 12 && h < 18) text = "Good afternoon.";
+          else if (h >= 18 && h < 23) text = "Winding down?";
+          el.textContent = text;
+        }
+
         function tint(hour) {
           shown = (hour % 24 + 24) % 24;
           var i = 1;
@@ -206,6 +289,8 @@ layout: compress
           root.style.setProperty("--bg", "color-mix(in oklab, oklch(" + a[1] + ") " + ((1 - t) * 100).toFixed(1) + "%, oklch(" + b[1] + "))");
           /* Flip to light text where black and white contrast equally with the background */
           root.style.colorScheme = lightness < 0.565 ? "dark" : "light";
+          root.style.setProperty("--company-name-gradient", lightness < 0.565 ? "var(--company-name-night)" : "var(--company-name-day)");
+          updateGreeting(shown);
           window.dispatchEvent(new Event("daylight"));
         }
 
@@ -215,6 +300,28 @@ layout: compress
         }, 60000);
 
         document.addEventListener("DOMContentLoaded", function () {
+          updateGreeting(shown);
+          var github = document.querySelector('header nav a[aria-label="GitHub"]');
+          if (github) {
+            var pixels = Array.from(github.querySelectorAll(".github-pixel"));
+            function shufflePixels() {
+              var order = pixels.slice();
+              for (var i = order.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var pixel = order[i];
+                order[i] = order[j];
+                order[j] = pixel;
+              }
+              order.forEach(function (pixel, index) {
+                pixel.style.setProperty("--pixel-delay", (index * 250 / (order.length - 1)).toFixed(3) + "ms");
+              });
+            }
+            shufflePixels();
+            github.addEventListener("pointerenter", shufflePixels);
+            github.addEventListener("focus", function () {
+              if (github.matches(":focus-visible")) shufflePixels();
+            });
+          }
           var dial = document.querySelector(".dial");
           if (!dial) return;
           var ctx = dial.getContext("2d");
@@ -333,7 +440,26 @@ layout: compress
     <header>
       <canvas class="dial" width="17" height="17" role="slider" tabindex="0" aria-label="Time of day" aria-valuemin="0" aria-valuemax="23" title="Time of day"></canvas>
       <nav>
-        <a href="https://github.com/lineofflight" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/lineofflight" target="_blank" rel="noopener" aria-label="GitHub" title="GitHub">
+          <svg viewBox="0 0 16 16" width="36" height="36" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
+            <defs>
+              <clipPath id="github-shape">
+                <path d="M0 10H2V11H3V12H6V11H7V10H5V9H3V8H2V3H3V1H5V2H13V1H15V3H16V8H15V9H13V10H11V11H13V14H14V15H12V12H11V16H10V12H9V16H8V12H7V15H5V14H6V13H2V12H1V11H0Z
+                  M4 4V8H6V9H12V8H14V4Z
+                  M5 5H7V7H5Z
+                  M8 7H10V8H8Z
+                  M11 5H13V7H11Z"/>
+              </clipPath>
+            </defs>
+            <g clip-path="url(#github-shape)">
+              {% for pixel in (0..63) %}
+                {% assign x = pixel | modulo: 8 | times: 2 %}
+                {% assign y = pixel | divided_by: 8 | times: 2 %}
+                <rect class="github-pixel" x="{{ x }}" y="{{ y }}" width="2" height="2"/>
+              {% endfor %}
+            </g>
+          </svg>
+        </a>
       </nav>
     </header>
     <main>
@@ -341,7 +467,7 @@ layout: compress
     </main>
     <footer>
       <div>
-        <span>Line of Flight B.V. |</span>
+        <span><span class="company-name">Line of Flight</span> B.V. |</span>
         <span>Amsterdam |</span>
         <span>KvK 90477014 |</span>
         <span>VAT NL865329564B01</span>
