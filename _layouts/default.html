@@ -135,10 +135,44 @@ layout: compress
         line-height: 1.15;
         letter-spacing: -0.02em;
       }
+      p:not(.lead) {
+        max-width: max(60%, 20rem);
+      }
       a {
         color: inherit;
         text-decoration: underline;
         text-underline-offset: 3px;
+      }
+      /* Hand-drawn underline, stretched to the width of the text. The shape is
+         filled, not stroked, so it can swell and taper like ink from a pen */
+      .scribble {
+        position: relative;
+        display: inline-block;
+        padding-bottom: 0.8em;
+      }
+      .scribble svg {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 0.7em;
+        overflow: visible;
+        fill: currentColor;
+        stroke: currentColor;
+        stroke-width: 0.5;
+        stroke-linejoin: round;
+      }
+      /* Keep the tagline on one line on narrow screens */
+      .scribble .less {
+        display: none;
+      }
+      @media (max-width: 768px) {
+        .scribble .more {
+          display: none;
+        }
+        .scribble .less {
+          display: inline;
+        }
       }
       footer {
         display: flex;
