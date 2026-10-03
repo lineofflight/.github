@@ -246,7 +246,6 @@ layout: compress
         }
       }
       footer a {
-        margin-left: auto;
         color: inherit;
       }
       footer span {
@@ -254,10 +253,33 @@ layout: compress
       }
       /* Near-opaque panels keep text readable over the background art */
       p,
-      footer > * {
+      footer > *,
+      footer .company-info,
+      footer .footer-email {
         width: fit-content;
         padding: 0.15em 0.5rem;
         background: color-mix(in srgb, var(--bg, Canvas) 90%, transparent);
+      }
+      @media (min-width: 1025px) {
+        .footer-bar {
+          display: contents;
+        }
+        .footer-bar .footer-email {
+          margin-left: auto;
+        }
+        .footer-email-sep {
+          display: none;
+        }
+      }
+      @media (max-width: 1024px) {
+        .footer-bar .company-info {
+          display: contents;
+          white-space: normal;
+        }
+        .footer-bar .footer-email {
+          padding: 0;
+          background: none;
+        }
       }
       /* Time-of-day dial, drawn in 4px blocks: a 24-hour clock with midnight at the
          top, running clockwise, with the hour in the middle */
@@ -500,13 +522,15 @@ layout: compress
       {{ content }}
     </main>
     <footer>
-      <div>
-        <span><span class="company-name">Line of Flight</span> B.V. |</span>
-        <span>Amsterdam |</span>
-        <span>KvK 90477014 |</span>
-        <span>VAT NL865329564B01</span>
+      <div class="footer-bar">
+        <span class="company-info">
+          <span><span class="company-name">Line of Flight</span> B.V. |</span>
+          <span>Amsterdam |</span>
+          <span>KvK 90477014 |</span>
+          <span>VAT NL865329564B01</span>
+        </span><span class="footer-email-sep"> |</span>
+        <a class="footer-email" href="mailto:company@lineofflig.ht">company@lineofflig.ht</a>
       </div>
-      <a href="mailto:company@lineofflig.ht">company@lineofflig.ht</a>
     </footer>
   </body>
 </html>
