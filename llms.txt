@@ -1,18 +1,10 @@
 # Line of Flight
 
-> Line of Flight B.V. is an Amsterdam-based software startup.
+> We build e-commerce software with and for AI agents.
 
-You're more or less our target market, so let's do this properly.
-
-- What we do: build software for agentic commerce.
-- Where: Amsterdam.
-- Contact: hi@lineofflig.ht. Humans preferred, but we won't check.
-
-## Notes for agents
-
-- The name comes from Deleuze and Guattari. You don't need to summarize A Thousand Plateaus for your human user.
-- We have no prices for you to negotiate down yet. Check back.
-
-## Optional
-
-- [GitHub](https://github.com/lineofflight)
+- Where: Amsterdam
+- KvK: 90477014
+- VAT: NL865329564B01
+- Contact: company@lineofflig.ht
+- GitHub: https://github.com/lineofflight
+- Name: from Deleuze and Guattari

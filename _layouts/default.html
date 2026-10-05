@@ -148,7 +148,7 @@ layout: compress
       .scribble {
         position: relative;
         display: inline-block;
-        padding-bottom: 0.8em;
+        padding-bottom: 0.6em;
       }
       .scribble svg {
         position: absolute;
@@ -161,18 +161,6 @@ layout: compress
         stroke: currentColor;
         stroke-width: 0.5;
         stroke-linejoin: round;
-      }
-      /* Keep the tagline on one line on narrow screens */
-      .scribble .less {
-        display: none;
-      }
-      @media (max-width: 768px) {
-        .scribble .more {
-          display: none;
-        }
-        .scribble .less {
-          display: inline;
-        }
       }
       footer {
         display: flex;
@@ -323,6 +311,51 @@ layout: compress
           return d.getHours() + d.getMinutes() / 60;
         }
 
+        var pen;
+        var inked;
+
+        /* Redraw the underline with an unsteady hand: every point of the pen stroke
+           shifts up or down a touch, so no two underlines are quite alike */
+        function ink() {
+          var path = document.querySelector(".scribble path");
+          if (!path) return;
+          pen = pen || path.getAttribute("d");
+          var nudged = {};
+          var d = pen.replace(/([\d.]+) ([\d.]+)/g, function (point, x, y) {
+            /* A repeated point moves the same way each time, which keeps the outline closed */
+            nudged[point] = nudged[point] || x + " " + (+y + (Math.random() - 0.5) * 0.7).toFixed(2);
+            return nudged[point];
+          });
+          /* Now and then the nib lets go of a little ink, which pools under the line: a faint,
+             lopsided swelling towards the end of the stroke, never a tidy dot */
+          if (Math.random() < 0.15) {
+            var box = path.ownerSVGElement.getBoundingClientRect();
+            var x = 185 + Math.random() * 60;
+            /* Just below the middle of the stroke at that point, so the pool hangs from it */
+            var y = 4.15 - x / 200 + Math.random() * 0.2;
+            var size = 0.55 + Math.random() * 0.3;
+            /* The drawing stretches to the width of the text, so widths are scaled to match,
+               then stretched further because ink spreads along the line */
+            var wide = 30 * box.height / box.width * (2.5 + Math.random() * 2);
+            /* Six points around the middle, each a different distance out, clockwise like the stroke */
+            var rim = [];
+            for (var i = 0; i < 6; i++) {
+              var angle = (i + Math.random() * 0.7) / 6 * 2 * Math.PI;
+              var reach = size * (0.65 + Math.random() * 0.6);
+              rim.push([x + reach * wide * Math.cos(angle), y + reach * Math.sin(angle)]);
+            }
+            /* The outline curves round each point, from one halfway mark to the next */
+            var halfway = function (n) {
+              var next = rim[(n + 1) % 6];
+              return (rim[n][0] + next[0]) / 2 + " " + (rim[n][1] + next[1]) / 2;
+            };
+            d += "M" + halfway(5);
+            for (i = 0; i < 6; i++) d += "Q" + rim[i].join(" ") + " " + halfway(i);
+            d += "Z";
+          }
+          path.setAttribute("d", d);
+        }
+
         function updateGreeting(h) {
           var el = document.getElementById("greeting");
           if (!el) return;
@@ -331,7 +364,9 @@ layout: compress
           else if (h >= 8 && h < 12) text = "Good morning.";
           else if (h >= 12 && h < 18) text = "Good afternoon.";
           else if (h >= 18 && h < 23) text = "Winding down?";
-          el.textContent = text;
+          if (text === inked) return;
+          inked = el.textContent = text;
+          ink();
         }
 
         function tint(hour) {
@@ -473,8 +508,22 @@ layout: compress
       {
         "@context": "https://schema.org",
         "@type": "Organization",
-        "name": "Line of Flight B.V.",
+        "name": "Line of Flight",
+        "legalName": "Line of Flight B.V.",
+        "description": {{ page.description | jsonify }},
         "url": "{{ site.url }}",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Amsterdam",
+          "addressCountry": "NL"
+        },
+        "vatID": "NL865329564B01",
+        "iso6523Code": "0106:90477014",
+        "founder": {
+          "@type": "Person",
+          "name": "Hakan Ensari",
+          "url": "https://hakanensari.com"
+        },
         "logo": "https://lineofflig.ht/17c6170a.jpg",
         "contactPoint": [
           {
