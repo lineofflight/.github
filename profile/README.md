@@ -1,5 +1,3 @@
 ![Line of Flight](https://lineofflig.ht/line-of-flight.gif)
 
-Agentic commerce and other things.
-
-https://lineofflig.ht
+Want to work on things like these? Say hello.
