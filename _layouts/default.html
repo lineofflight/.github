@@ -361,9 +361,7 @@ layout: compress
           if (!el) return;
           var text = "Still up?";
           if (h >= 5 && h < 8) text = "Early start?";
-          else if (h >= 8 && h < 12) text = "Good morning.";
-          else if (h >= 12 && h < 18) text = "Good afternoon.";
-          else if (h >= 18 && h < 23) text = "Winding down?";
+          else if (h >= 8 && h < 23) text = "Hello!";
           if (text === inked) return;
           inked = el.textContent = text;
           ink();
