@@ -7,4 +7,5 @@
 - VAT: NL865329564B01
 - Contact: company@lineofflig.ht
 - GitHub: https://github.com/lineofflight
+- Hugging Face: https://huggingface.co/lineofflight
 - Name: from Deleuze and Guattari
