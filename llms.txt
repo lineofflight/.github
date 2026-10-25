@@ -1,6 +1,6 @@
 # Line of Flight
 
-> We build e-commerce software with and for AI agents.
+> We build e-commerce software for AI agents.
 
 - Where: Amsterdam
 - KvK: 90477014
