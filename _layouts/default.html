@@ -89,9 +89,10 @@ layout: compress
       }
       header nav {
         display: flex;
+        gap: 1rem;
         margin-left: auto;
       }
-      header nav a {
+      header nav :is(a, button) {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -100,6 +101,25 @@ layout: compress
         color: inherit;
         background: color-mix(in srgb, var(--bg, Canvas) 90%, transparent);
         text-decoration: none;
+      }
+      header nav button {
+        padding: 0;
+        border: 0;
+        font: inherit;
+        cursor: pointer;
+      }
+      .loop-pixel {
+        opacity: 0.3;
+      }
+      .loop[aria-pressed="true"] .loop-pixel,
+      .loop:is(:hover, :focus-visible) .loop-pixel {
+        opacity: 0.8;
+      }
+      .loop-wave {
+        display: none;
+      }
+      .loop[aria-pressed="true"] .loop-wave {
+        display: block;
       }
       .github-pixel {
         --pixel-delay: 0ms;
@@ -544,6 +564,12 @@ layout: compress
     <header>
       <canvas class="dial" width="17" height="17" role="slider" tabindex="0" aria-label="Time of day" aria-valuemin="0" aria-valuemax="23" title="Time of day"></canvas>
       <nav>
+        <button class="loop" type="button" aria-pressed="false" aria-label="Play music" title="Play music">
+          <svg viewBox="0 0 16 16" width="28" height="28" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
+            <path class="loop-pixel" d="M6 0h2v16H6ZM4 2h2v12H4ZM0 4h4v8H0Z"/>
+            <path class="loop-pixel loop-wave" d="M10 6h2v4h-2ZM12 2h2v2h-2ZM14 4h2v8h-2ZM12 12h2v2h-2Z"/>
+          </svg>
+        </button>
         <a href="https://github.com/lineofflight" target="_blank" rel="noopener" aria-label="GitHub" title="GitHub">
           <svg viewBox="0 0 16 16" width="36" height="36" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
             <defs>
@@ -580,5 +606,6 @@ layout: compress
         <a class="footer-email" href="mailto:company@lineofflig.ht">company@lineofflig.ht</a>
       </div>
     </footer>
+    {% include loop.html %}
   </body>
 </html>

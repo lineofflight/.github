@@ -1,0 +1,379 @@
+<script>
+    (function () {
+        var button = document.querySelector(".loop");
+        var AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!button || !AudioContext) return;
+
+        /* A sketch of the groove from DWIG's remix of Kerala Dust's Untitled (Late Sun):
+           119 BPM in C minor. Everything is synthesised when the visitor presses play,
+           so the page ships no audio. */
+        var bpm = 119;
+        var beat = 60 / bpm;
+        var step = beat / 4;
+
+        /* The parts, in the order they come in on the record: it opens on the pad and a
+           picked figure alone, the bass creeps in, then the drums */
+        var order = ["pad", "pluck", "bass", "beat", "top", "stab"];
+        var layers = { pad: true, pluck: true, bass: false, beat: false, top: false, stab: false };
+
+        /* The arrangement moves in a slow arc: build up a part at a time, hold the full
+           groove for a while, strip back for an interlude, build again. The pad never
+           leaves, and the intro texture is the most likely place to fall back to */
+        var phase = "build";
+        var hold = 4;
+        var gap = null;
+        var opened = false;
+        var minimal = [["pad", "pluck"], ["pad", "pluck"], ["pad"], ["pad", "pluck", "bass"], ["pad", "beat"], ["pad", "top"]];
+
+        var hz = {
+            Eb1: 38.89, F1: 43.65, G1: 49.0, Bb1: 58.27, C2: 65.41,
+            G2: 98.0, C3: 130.81, Eb3: 155.56, G3: 196.0, Bb3: 233.08,
+            B3: 246.94, C4: 261.63, D4: 293.66, Eb4: 311.13
+        };
+        /* Picked figure in eighths over two bars, circling C with its neighbours */
+        var pluckA = ["C4", "G3", "C4", "B3", "C4", "G3", "B3", "C4"];
+        var pluckB = ["C4", "G3", "Eb4", "D4", "C4", "G3", "B3", "G3"];
+
+        /* One bar of bass in sixteenths: [start, note, length]. Every other bar bends the Eb up to Bb */
+        var bassA = [[0, "C2", 1], [2, "G1", 2], [4, "F1", 2], [6, "Eb1", 2], [8, "C2", 2], [15, "C2", 1]];
+        var bassB = [[0, "C2", 1], [2, "G1", 2], [4, "F1", 2], [6, "Bb1", 2], [8, "C2", 2], [15, "C2", 1]];
+        /* Chord stabs on the off-beats, following the bass */
+        var stabA = { 2: ["G2", "G3"], 6: ["C3", "G3", "C4"], 14: ["G2", "G3"] };
+        var stabB = { 2: ["G2", "G3"], 6: ["Eb3", "Bb3"], 14: ["G2", "G3"] };
+
+        var ctx, master, low, noise, pad, strings, clock, timer, hush;
+        var next = 0;
+        var pos = 0;
+        var bar = 0;
+        var current = null;
+
+        function kick(t) {
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.frequency.setValueAtTime(150, t);
+            osc.frequency.exponentialRampToValueAtTime(48, t + 0.09);
+            gain.gain.setValueAtTime(1, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+            osc.connect(gain).connect(low);
+            osc.start(t);
+            osc.stop(t + 0.45);
+        }
+
+        /* Low tom tucked in just before the beat, hardest before the fourth */
+        function tom(t, level) {
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.frequency.setValueAtTime(180, t);
+            osc.frequency.exponentialRampToValueAtTime(80, t + 0.06);
+            gain.gain.setValueAtTime(0.5 * level, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+            osc.connect(gain).connect(master);
+            osc.start(t);
+            osc.stop(t + 0.22);
+        }
+
+        /* A slice of white noise through a filter, with a sharp decay */
+        function burst(t, type, freq, q, peak, decay) {
+            var src = ctx.createBufferSource();
+            var filter = ctx.createBiquadFilter();
+            var gain = ctx.createGain();
+            src.buffer = noise;
+            filter.type = type;
+            filter.frequency.value = freq;
+            filter.Q.value = q;
+            gain.gain.setValueAtTime(peak, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + decay);
+            src.connect(filter).connect(gain).connect(master);
+            src.start(t, Math.random() * 1.5);
+            src.stop(t + decay);
+        }
+
+        function hat(t) {
+            burst(t, "highpass", 7000, 0.7, 0.25, 0.15);
+        }
+
+        function rim(t) {
+            burst(t, "bandpass", 3200, 2, 0.18, 0.03);
+        }
+
+        function clap(t) {
+            burst(t, "bandpass", 1800, 1, 0.5, 0.025);
+            burst(t + 0.012, "bandpass", 1800, 1, 0.45, 0.025);
+            burst(t + 0.024, "bandpass", 1600, 1, 0.5, 0.18);
+        }
+
+        function bass(t, note, len) {
+            var dur = len * step;
+            var osc = ctx.createOscillator();
+            var sub = ctx.createOscillator();
+            var filter = ctx.createBiquadFilter();
+            var gain = ctx.createGain();
+            osc.type = "sawtooth";
+            osc.frequency.value = hz[note];
+            sub.frequency.value = hz[note];
+            filter.type = "lowpass";
+            filter.Q.value = 3;
+            filter.frequency.setValueAtTime(600, t);
+            filter.frequency.exponentialRampToValueAtTime(160, t + dur);
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.linearRampToValueAtTime(0.5, t + 0.006);
+            gain.gain.setValueAtTime(0.5, t + dur - 0.02);
+            /* The release runs a little past the note so rests don't chop */
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.06);
+            osc.connect(filter);
+            sub.connect(filter);
+            filter.connect(gain).connect(low);
+            osc.start(t);
+            sub.start(t);
+            osc.stop(t + dur + 0.06);
+            sub.stop(t + dur + 0.06);
+        }
+
+        function stab(t, notes) {
+            var filter = ctx.createBiquadFilter();
+            var gain = ctx.createGain();
+            filter.type = "lowpass";
+            filter.Q.value = 5;
+            filter.frequency.setValueAtTime(2200, t);
+            filter.frequency.exponentialRampToValueAtTime(300, t + 0.3);
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.linearRampToValueAtTime(0.22, t + 0.004);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+            notes.forEach(function (n) {
+                var osc = ctx.createOscillator();
+                osc.type = "sawtooth";
+                osc.frequency.value = hz[n];
+                osc.detune.value = (Math.random() - 0.5) * 10;
+                osc.connect(filter);
+                osc.start(t);
+                osc.stop(t + 0.35);
+            });
+            filter.connect(gain).connect(master);
+        }
+
+        /* A short plucked note, two slightly detuned oscillators behind a closing filter,
+           sent through a dotted-eighth echo */
+        function pluck(t, note) {
+            var filter = ctx.createBiquadFilter();
+            var gain = ctx.createGain();
+            filter.type = "lowpass";
+            filter.Q.value = 1;
+            filter.frequency.setValueAtTime(1800, t);
+            filter.frequency.exponentialRampToValueAtTime(500, t + 0.2);
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.linearRampToValueAtTime(0.14, t + 0.002);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+            [["triangle", 0], ["sawtooth", 8]].forEach(function (v) {
+                var osc = ctx.createOscillator();
+                osc.type = v[0];
+                osc.frequency.value = hz[note];
+                osc.detune.value = v[1];
+                osc.connect(filter);
+                osc.start(t);
+                osc.stop(t + 0.4);
+            });
+            filter.connect(gain).connect(strings);
+        }
+
+        function makeStrings() {
+            var bus = ctx.createGain();
+            var delay = ctx.createDelay();
+            var feedback = ctx.createGain();
+            var wet = ctx.createGain();
+            delay.delayTime.value = beat * 0.75;
+            feedback.gain.value = 0.35;
+            wet.gain.value = 0.5;
+            bus.connect(master);
+            bus.connect(delay);
+            delay.connect(feedback).connect(delay);
+            delay.connect(wet).connect(master);
+            return bus;
+        }
+
+        /* Two detuned pairs on C and G, slowly wobbling, behind a lazy filter sweep */
+        function makePad() {
+            var out = ctx.createGain();
+            var filter = ctx.createBiquadFilter();
+            var sweep = ctx.createOscillator();
+            var sweepDepth = ctx.createGain();
+            var wobble = ctx.createOscillator();
+            var wobbleDepth = ctx.createGain();
+            out.gain.value = 0;
+            filter.type = "lowpass";
+            filter.frequency.value = 500;
+            filter.Q.value = 0.8;
+            sweep.frequency.value = 0.08;
+            sweepDepth.gain.value = 180;
+            sweep.connect(sweepDepth).connect(filter.frequency);
+            sweep.start();
+            wobble.frequency.value = 0.21;
+            wobbleDepth.gain.value = 5;
+            wobble.connect(wobbleDepth);
+            wobble.start();
+            [["C3", -7], ["C3", 7], ["G3", -5], ["G3", 6]].forEach(function (v) {
+                var osc = ctx.createOscillator();
+                osc.type = "sawtooth";
+                osc.frequency.value = hz[v[0]];
+                osc.detune.value = v[1];
+                wobbleDepth.connect(osc.detune);
+                osc.connect(filter);
+                osc.start();
+            });
+            filter.connect(out).connect(master);
+            return out;
+        }
+
+        function play(p, t) {
+            var even = bar % 2 === 0;
+            /* In the last bar before a change, the pickups on the final two sixteenths already
+               belong to the next arrangement: a part on its way out skips them, and one on
+               its way in gets to lead itself in */
+            var on = current && p < 14 ? current : layers;
+            if (on.beat) {
+                if (p % 4 === 0) kick(t);
+                if (p === 4 || p === 12) clap(t);
+            }
+            if (on.top) {
+                if (p % 4 === 2) hat(t);
+                if (p % 4 === 3) tom(t, p === 11 ? 1 : 0.6);
+                if (p === 2 || p === 10) rim(t);
+            }
+            if (on.pluck && p % 2 === 0) pluck(t, (even ? pluckA : pluckB)[p / 2]);
+            if (on.bass) {
+                (even ? bassA : bassB).forEach(function (n) {
+                    if (n[0] === p) bass(t, n[1], n[2]);
+                });
+            }
+            if (on.stab) {
+                var chord = (even ? stabA : stabB)[p];
+                if (chord) stab(t, chord);
+            }
+        }
+
+        function pick(list) {
+            return list[Math.floor(Math.random() * list.length)];
+        }
+
+        /* Every two bars, decide where the arrangement goes next */
+        function advance() {
+            if (gap) {
+                layers[gap] = true;
+                gap = null;
+            }
+            hold -= 2;
+            if (hold > 0) {
+                /* While the groove is full, now and then rest the picking or the stabs for two
+                   bars, on a four-bar line so it reads as a phrase rather than a dropout */
+                if (phase === "full" && bar % 4 === 3 && Math.random() < 0.25) {
+                    gap = pick(["pluck", "stab"]);
+                    layers[gap] = false;
+                }
+                return;
+            }
+            if (phase === "minimal") phase = "build";
+            var missing = order.filter(function (k) { return !layers[k]; });
+            if (phase === "build") {
+                if (missing.length) {
+                    /* Mostly the next part in order, sometimes one out of turn. The opening
+                       takes its time; after an interlude the groove comes back briskly */
+                    layers[Math.random() < 0.7 ? missing[0] : pick(missing)] = true;
+                    hold = opened ? 2 : pick([2, 4, 4]);
+                } else {
+                    phase = "full";
+                    opened = true;
+                    hold = pick([8, 12, 16, 16, 24]);
+                }
+            } else {
+                var keep = pick(minimal);
+                order.forEach(function (k) { layers[k] = keep.indexOf(k) >= 0; });
+                phase = "minimal";
+                hold = pick([4, 4, 6, 8]);
+            }
+        }
+
+        /* Schedule ahead of the clock so timing survives a busy main thread. The clock is a
+           worker, since browsers slow page timers to a crawl in background tabs; without
+           one, the page timer is used with a much longer lead */
+        function tick() {
+            while (next < ctx.currentTime + (clock ? 0.2 : 1.2)) {
+                play(pos, next);
+                next += step;
+                pos = (pos + 1) % 16;
+                if (pos === 0) {
+                    bar++;
+                    if (bar % 2) {
+                        /* Decide the next move a bar early so the pickups can follow it */
+                        current = Object.assign({}, layers);
+                        advance();
+                    } else {
+                        current = null;
+                        pad.gain.setTargetAtTime(layers.pad ? 0.07 : 0, next, 0.4);
+                    }
+                }
+            }
+        }
+
+        function start() {
+            if (!ctx) {
+                ctx = new AudioContext();
+                master = ctx.createGain();
+                master.gain.value = 0.5;
+                /* Catches peaks only, so it never pumps the mix on each kick */
+                var limiter = ctx.createDynamicsCompressor();
+                limiter.threshold.value = -6;
+                limiter.knee.value = 6;
+                limiter.ratio.value = 12;
+                limiter.attack.value = 0.002;
+                limiter.release.value = 0.08;
+                master.connect(limiter).connect(ctx.destination);
+                /* Kick and bass pass through a gentle saturation, which adds the harmonics
+                   small speakers need to make out the low end */
+                low = ctx.createWaveShaper();
+                var curve = new Float32Array(1024);
+                for (var k = 0; k < 1024; k++) curve[k] = Math.tanh(2 * (k / 511.5 - 1)) / Math.tanh(2);
+                low.curve = curve;
+                low.oversample = "2x";
+                low.connect(master);
+                noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+                var data = noise.getChannelData(0);
+                for (var i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+                pad = makePad();
+                strings = makeStrings();
+                try {
+                    clock = new Worker(URL.createObjectURL(new Blob(
+                        ["var id; onmessage = function (e) { clearInterval(id); if (e.data) id = setInterval(function () { postMessage(0); }, 25); };"],
+                        { type: "text/javascript" }
+                    )));
+                    clock.onmessage = tick;
+                } catch (e) {
+                    clock = null;
+                }
+            }
+            clearTimeout(hush);
+            ctx.resume();
+            next = ctx.currentTime + 0.05;
+            pos = 0;
+            current = null;
+            pad.gain.setTargetAtTime(layers.pad ? 0.07 : 0, next, 0.4);
+            if (clock) clock.postMessage(1);
+            else timer = setInterval(tick, 25);
+        }
+
+        function stop() {
+            if (clock) clock.postMessage(0);
+            else clearInterval(timer);
+            pad.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
+            /* Let the last hits ring out before the context sleeps */
+            hush = setTimeout(function () { ctx.suspend(); }, 600);
+        }
+
+        button.addEventListener("click", function () {
+            var on = button.getAttribute("aria-pressed") !== "true";
+            button.setAttribute("aria-pressed", on);
+            button.setAttribute("aria-label", on ? "Stop music" : "Play music");
+            button.title = on ? "Stop music" : "Play music";
+            if (on) start();
+            else stop();
+        });
+    })();
+</script>
