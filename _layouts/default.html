@@ -121,16 +121,16 @@ layout: compress
       .loop[aria-pressed="true"] .loop-wave {
         display: block;
       }
-      .github-pixel {
+      .pixel {
         --pixel-delay: 0ms;
         opacity: 0.3;
         transition: opacity 50ms steps(1, end) var(--pixel-delay);
       }
-      header nav a:is(:hover, :focus-visible) .github-pixel {
+      header nav a:is(:hover, :focus-visible) .pixel {
         opacity: 0.8;
       }
       @media (prefers-reduced-motion: reduce) {
-        .github-pixel {
+        .pixel {
           transition: none;
         }
       }
@@ -410,9 +410,10 @@ layout: compress
 
         document.addEventListener("DOMContentLoaded", function () {
           updateGreeting(shown);
-          var github = document.querySelector('header nav a[aria-label="GitHub"]');
-          if (github) {
-            var pixels = Array.from(github.querySelectorAll(".github-pixel"));
+          /* Each pixel icon in the nav lights up in a fresh random order on every hover */
+          document.querySelectorAll("header nav a").forEach(function (link) {
+            var pixels = Array.from(link.querySelectorAll(".pixel"));
+            if (!pixels.length) return;
             function shufflePixels() {
               var order = pixels.slice();
               for (var i = order.length - 1; i > 0; i--) {
@@ -426,11 +427,11 @@ layout: compress
               });
             }
             shufflePixels();
-            github.addEventListener("pointerenter", shufflePixels);
-            github.addEventListener("focus", function () {
-              if (github.matches(":focus-visible")) shufflePixels();
+            link.addEventListener("pointerenter", shufflePixels);
+            link.addEventListener("focus", function () {
+              if (link.matches(":focus-visible")) shufflePixels();
             });
-          }
+          });
           var dial = document.querySelector(".dial");
           if (!dial) return;
           var ctx = dial.getContext("2d");
@@ -570,6 +571,22 @@ layout: compress
             <path class="loop-pixel loop-wave" d="M10 6h2v4h-2ZM12 2h2v2h-2ZM14 4h2v8h-2ZM12 12h2v2h-2Z"/>
           </svg>
         </button>
+        <a href="https://huggingface.co/lineofflight" target="_blank" rel="noopener" aria-label="Hugging Face" title="Hugging Face">
+          <svg viewBox="0 0 16 16" width="36" height="36" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
+            <defs>
+              <clipPath id="huggingface-shape">
+                <path d="M4 0h8v2H4ZM2 2h2v2H2ZM12 2h2v2h-2ZM0 4h2v2H0ZM4 4h2v2H4ZM10 4h2v2h-2ZM14 4h2v2h-2ZM0 6h2v2H0ZM14 6h2v2h-2ZM0 8h2v2H0ZM4 8h2v2H4ZM10 8h2v2h-2ZM14 8h2v2h-2ZM0 10h2v2H0ZM6 10h4v2H6ZM14 10h2v2h-2ZM0 12h4v2H0ZM12 12h4v2h-4ZM0 14h4v2H0ZM6 14h4v2H6ZM12 14h4v2h-4Z"/>
+              </clipPath>
+            </defs>
+            <g clip-path="url(#huggingface-shape)">
+              {% for pixel in (0..63) %}
+                {% assign x = pixel | modulo: 8 | times: 2 %}
+                {% assign y = pixel | divided_by: 8 | times: 2 %}
+                <rect class="pixel" x="{{ x }}" y="{{ y }}" width="2" height="2"/>
+              {% endfor %}
+            </g>
+          </svg>
+        </a>
         <a href="https://github.com/lineofflight" target="_blank" rel="noopener" aria-label="GitHub" title="GitHub">
           <svg viewBox="0 0 16 16" width="36" height="36" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
             <defs>
@@ -585,7 +602,7 @@ layout: compress
               {% for pixel in (0..63) %}
                 {% assign x = pixel | modulo: 8 | times: 2 %}
                 {% assign y = pixel | divided_by: 8 | times: 2 %}
-                <rect class="github-pixel" x="{{ x }}" y="{{ y }}" width="2" height="2"/>
+                <rect class="pixel" x="{{ x }}" y="{{ y }}" width="2" height="2"/>
               {% endfor %}
             </g>
           </svg>
