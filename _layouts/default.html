@@ -108,6 +108,24 @@ layout: compress
         font: inherit;
         cursor: pointer;
       }
+      /* Smaller icons on phones, with the boxes still big enough to tap */
+      @media (max-width: 640px) {
+        header nav {
+          gap: 0.5rem;
+        }
+        header nav :is(a, button) {
+          width: 44px;
+          height: 44px;
+        }
+        header nav a svg {
+          width: 30px;
+          height: 30px;
+        }
+        header nav button svg {
+          width: 23px;
+          height: 23px;
+        }
+      }
       .loop-pixel {
         opacity: 0.3;
       }
@@ -301,6 +319,13 @@ layout: compress
       }
       .dial:active {
         cursor: grabbing;
+      }
+      /* The dial is drawn in whole pixels, so on phones it steps from four to three per cell */
+      @media (max-width: 640px) {
+        .dial {
+          width: 51px;
+          height: 51px;
+        }
       }
     </style>
     <script>
