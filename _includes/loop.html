@@ -41,7 +41,7 @@
         var stabA = { 2: ["G2", "G3"], 6: ["C3", "G3", "C4"], 14: ["G2", "G3"] };
         var stabB = { 2: ["G2", "G3"], 6: ["Eb3", "Bb3"], 14: ["G2", "G3"] };
 
-        var ctx, master, low, noise, pad, strings, clock, timer, hush;
+        var ctx, master, low, dirt, echo, noise, pad, strings, clock, timer, hush;
         var next = 0;
         var pos = 0;
         var bar = 0;
@@ -122,7 +122,9 @@
             gain.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.06);
             osc.connect(filter);
             sub.connect(filter);
-            filter.connect(gain).connect(low);
+            filter.connect(gain);
+            gain.connect(low);
+            gain.connect(dirt);
             osc.start(t);
             sub.start(t);
             osc.stop(t + dur + 0.06);
@@ -188,6 +190,60 @@
             delay.connect(feedback).connect(delay);
             delay.connect(wet).connect(master);
             return bus;
+        }
+
+        /* A tanh curve for a WaveShaper; the more drive, the closer it gets to a square */
+        function saturate(drive) {
+            var curve = new Float32Array(1024);
+            for (var k = 0; k < 1024; k++) curve[k] = Math.tanh(drive * (k / 511.5 - 1)) / Math.tanh(drive);
+            return curve;
+        }
+
+        /* The bass also runs through a much harder drive in parallel. Only the band above
+           the sub comes back, so the low end stays round while the grit sits on top */
+        function makeDirt() {
+            var drive = ctx.createWaveShaper();
+            var band = ctx.createBiquadFilter();
+            var level = ctx.createGain();
+            drive.curve = saturate(8);
+            drive.oversample = "4x";
+            band.type = "bandpass";
+            band.frequency.value = 700;
+            band.Q.value = 0.5;
+            level.gain.value = 0.35;
+            drive.connect(band).connect(level).connect(master);
+            return drive;
+        }
+
+        /* A dub echo across the whole mix, closed until the arrangement strips back. Each
+           repeat comes back thinner than the last */
+        function makeEcho(out) {
+            var send = ctx.createGain();
+            var delay = ctx.createDelay(2);
+            var tone = ctx.createBiquadFilter();
+            var feedback = ctx.createGain();
+            send.gain.value = 0;
+            delay.delayTime.value = beat * 0.75;
+            tone.type = "bandpass";
+            tone.frequency.value = 1000;
+            tone.Q.value = 0.7;
+            feedback.gain.value = 0.6;
+            master.connect(send).connect(delay);
+            delay.connect(tone).connect(feedback).connect(delay);
+            tone.connect(out);
+            return { send: send, delay: delay };
+        }
+
+        /* The drop into an interlude: throw the back half of the last full bar into the
+           echo, then stretch the delay over the next two bars so the repeats sag in pitch
+           like tape slowing down. t is the start of that last bar */
+        function throwEcho(t) {
+            var cut = t + 16 * step;
+            echo.delay.delayTime.setValueAtTime(beat * 0.75, t);
+            echo.send.gain.setTargetAtTime(0.7, t + 8 * step, 0.01);
+            echo.send.gain.setTargetAtTime(0, cut, 0.02);
+            echo.delay.delayTime.setValueAtTime(beat * 0.75, cut);
+            echo.delay.delayTime.linearRampToValueAtTime(beat * 1.5, cut + 32 * step);
         }
 
         /* Two detuned pairs on C and G, slowly wobbling, behind a lazy filter sweep */
@@ -288,6 +344,7 @@
                 order.forEach(function (k) { layers[k] = keep.indexOf(k) >= 0; });
                 phase = "minimal";
                 hold = pick([4, 4, 6, 8]);
+                throwEcho(next);
             }
         }
 
@@ -329,11 +386,11 @@
                 /* Kick and bass pass through a gentle saturation, which adds the harmonics
                    small speakers need to make out the low end */
                 low = ctx.createWaveShaper();
-                var curve = new Float32Array(1024);
-                for (var k = 0; k < 1024; k++) curve[k] = Math.tanh(2 * (k / 511.5 - 1)) / Math.tanh(2);
-                low.curve = curve;
+                low.curve = saturate(2);
                 low.oversample = "2x";
                 low.connect(master);
+                dirt = makeDirt();
+                echo = makeEcho(limiter);
                 noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
                 var data = noise.getChannelData(0);
                 for (var i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
