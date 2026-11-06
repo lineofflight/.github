@@ -87,12 +87,12 @@ layout: compress
         gap: 0.5rem 1rem;
         font-family: "iA Writer Mono", monospace;
       }
+      /* The logos sit box to box, so the space between them is just their padding */
       header nav {
         display: flex;
-        gap: 1rem;
         margin-left: auto;
       }
-      header nav :is(a, button) {
+      header :is(nav a, .loop) {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -102,42 +102,36 @@ layout: compress
         background: color-mix(in srgb, var(--bg, Canvas) 90%, transparent);
         text-decoration: none;
       }
-      header nav button {
+      /* The music toggle sits snug beside the dial, level with its middle */
+      .loop {
+        align-self: center;
+        margin-left: -1rem;
         padding: 0;
         border: 0;
         font: inherit;
         cursor: pointer;
       }
-      /* Smaller icons on phones, with the boxes still big enough to tap */
+      /* Tighter boxes on phones, still big enough to tap */
       @media (max-width: 640px) {
-        header nav {
-          gap: 0.5rem;
-        }
-        header nav :is(a, button) {
+        header :is(nav a, .loop) {
           width: 44px;
           height: 44px;
         }
-        header nav a svg {
-          width: 30px;
-          height: 30px;
-        }
-        header nav button svg {
-          width: 23px;
-          height: 23px;
+        /* The bars match the height of the hour in the smaller dial */
+        .loop svg {
+          width: 14px;
+          height: 14px;
         }
       }
-      .loop-pixel {
+      /* Level bars: faint while the music is off, full text colour while it plays */
+      .loop svg {
         opacity: 0.3;
       }
-      .loop[aria-pressed="true"] .loop-pixel,
-      .loop:is(:hover, :focus-visible) .loop-pixel {
+      .loop:is(:hover, :focus-visible) svg {
         opacity: 0.8;
       }
-      .loop-wave {
-        display: none;
-      }
-      .loop[aria-pressed="true"] .loop-wave {
-        display: block;
+      .loop[aria-pressed="true"] svg {
+        opacity: 1;
       }
       .pixel {
         --pixel-delay: 0ms;
@@ -589,44 +583,76 @@ layout: compress
     {% include frame.html figure=page.figure %}
     <header>
       <canvas class="dial" width="17" height="17" role="slider" tabindex="0" aria-label="Time of day" aria-valuemin="0" aria-valuemax="23" title="Time of day"></canvas>
+      <button class="loop" type="button" aria-pressed="false" aria-label="Play music" title="Play music">
+        <svg viewBox="0 0 14 14" width="21" height="21" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
+          <path d="M0 9h2v5H0ZM4 6h2v8H4ZM8 3h2v11H8ZM12 0h2v14h-2Z"/>
+        </svg>
+      </button>
       <nav>
-        <button class="loop" type="button" aria-pressed="false" aria-label="Play music" title="Play music">
-          <svg viewBox="0 0 16 16" width="28" height="28" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
-            <path class="loop-pixel" d="M6 0h2v16H6ZM4 2h2v12H4ZM0 4h4v8H0Z"/>
-            <path class="loop-pixel loop-wave" d="M10 6h2v4h-2ZM12 2h2v2h-2ZM14 4h2v8h-2ZM12 12h2v2h-2Z"/>
-          </svg>
-        </button>
         <a href="https://huggingface.co/lineofflight" target="_blank" rel="noopener" aria-label="Hugging Face" title="Hugging Face">
-          <svg viewBox="0 0 16 16" width="36" height="36" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
+          <svg viewBox="0 0 20 20" width="26" height="26" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
             <defs>
               <clipPath id="huggingface-shape">
-                <path d="M4 0h8v2H4ZM2 2h2v2H2ZM12 2h2v2h-2ZM0 4h2v2H0ZM4 4h2v2H4ZM10 4h2v2h-2ZM14 4h2v2h-2ZM0 6h2v2H0ZM14 6h2v2h-2ZM0 8h2v2H0ZM4 8h2v2H4ZM10 8h2v2h-2ZM14 8h2v2h-2ZM0 10h2v2H0ZM6 10h4v2H6ZM14 10h2v2h-2ZM0 12h4v2H0ZM12 12h4v2h-4ZM0 14h4v2H0ZM6 14h4v2H6ZM12 14h4v2h-4Z"/>
+                <path d="M6 0h8v1H6Z
+                  M4 1h12v1H4Z
+                  M3 2h14v1H3Z
+                  M2 3h16v1H2Z
+                  M2 4h16v1H2Z
+                  M1 5h5v1H1ZM8 5h4v1H8ZM14 5h5v1h-5Z
+                  M1 6h5v1H1ZM8 6h4v1H8ZM14 6h5v1h-5Z
+                  M1 7h5v1H1ZM8 7h4v1H8ZM14 7h5v1h-5Z
+                  M1 8h18v1H1Z
+                  M1 9h5v1H1ZM14 9h5v1h-5Z
+                  M1 10h4v1H1ZM15 10h4v1h-4Z
+                  M1 11h5v1H1ZM14 11h5v1h-5Z
+                  M2 12h5v1H2ZM13 12h5v1h-5Z
+                  M5 13h4v1H5ZM11 13h4v1h-4Z
+                  M1 14h4v1H1ZM6 14h8v1H6ZM15 14h4v1h-4Z
+                  M0 15h5v1H0ZM6 15h8v1H6ZM15 15h5v1h-5Z
+                  M0 16h5v1H0ZM7 16h6v1H7ZM15 16h5v1h-5Z
+                  M0 17h5v1H0ZM7 17h6v1H7ZM15 17h5v1h-5Z
+                  M1 18h4v1H1ZM15 18h4v1h-4Z"/>
               </clipPath>
             </defs>
             <g clip-path="url(#huggingface-shape)">
-              {% for pixel in (0..63) %}
-                {% assign x = pixel | modulo: 8 | times: 2 %}
-                {% assign y = pixel | divided_by: 8 | times: 2 %}
+              {% for pixel in (0..99) %}
+                {% assign x = pixel | modulo: 10 | times: 2 %}
+                {% assign y = pixel | divided_by: 10 | times: 2 %}
                 <rect class="pixel" x="{{ x }}" y="{{ y }}" width="2" height="2"/>
               {% endfor %}
             </g>
           </svg>
         </a>
         <a href="https://github.com/lineofflight" target="_blank" rel="noopener" aria-label="GitHub" title="GitHub">
-          <svg viewBox="0 0 16 16" width="36" height="36" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
+          <svg viewBox="0 0 20 20" width="26" height="26" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
             <defs>
               <clipPath id="github-shape">
-                <path d="M0 10H2V11H3V12H6V11H7V10H5V9H3V8H2V3H3V1H5V2H13V1H15V3H16V8H15V9H13V10H11V11H13V14H14V15H12V12H11V16H10V12H9V16H8V12H7V15H5V14H6V13H2V12H1V11H0Z
-                  M4 4V8H6V9H12V8H14V4Z
-                  M5 5H7V7H5Z
-                  M8 7H10V8H8Z
-                  M11 5H13V7H11Z"/>
+                <path d="M3 0h1v1H3ZM17 0h1v1H17Z
+                  M3 1h2v1H3ZM16 1h2v1H16Z
+                  M3 2h15v1H3Z
+                  M2 3h17v1H2Z
+                  M2 4h6v1H2ZM13 4h6v1H13Z
+                  M2 5h4v1H2ZM15 5h4v1H15Z
+                  M2 6h3v1H2ZM6 6h2v1H6ZM13 6h2v1H13ZM16 6h3v1H16Z
+                  M2 7h3v1H2ZM6 7h2v1H6ZM13 7h2v1H13ZM16 7h3v1H16Z
+                  M2 8h3v1H2ZM16 8h3v1H16Z
+                  M3 9h2v1H3ZM9 9h3v1H9ZM16 9h2v1H16Z
+                  M1 10h1v1H1ZM4 10h2v1H4ZM15 10h2v1H15Z
+                  M0 11h2v1H0ZM5 11h11v1H5Z
+                  M1 12h2v1H1ZM6 12h9v1H6Z
+                  M2 13h13v1H2Z
+                  M3 14h12v1H3Z
+                  M6 15h9v1H6Z
+                  M5 16h2v1H5ZM8 16h2v1H8ZM11 16h2v1H11ZM14 16h2v1H14Z
+                  M4 17h2v1H4ZM8 17h2v1H8ZM11 17h2v1H11ZM15 17h2v1H15Z
+                  M3 18h2v1H3ZM8 18h2v1H8ZM11 18h2v1H11ZM16 18h2v1H16Z
+                  M8 19h2v1H8ZM11 19h2v1H11Z"/>
               </clipPath>
             </defs>
             <g clip-path="url(#github-shape)">
-              {% for pixel in (0..63) %}
-                {% assign x = pixel | modulo: 8 | times: 2 %}
-                {% assign y = pixel | divided_by: 8 | times: 2 %}
+              {% for pixel in (0..99) %}
+                {% assign x = pixel | modulo: 10 | times: 2 %}
+                {% assign y = pixel | divided_by: 10 | times: 2 %}
                 <rect class="pixel" x="{{ x }}" y="{{ y }}" width="2" height="2"/>
               {% endfor %}
             </g>
