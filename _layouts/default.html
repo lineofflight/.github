@@ -87,35 +87,35 @@ layout: compress
         gap: 0.5rem 1rem;
         font-family: "iA Writer Mono", monospace;
       }
-      /* The logos sit box to box, so the space between them is just their padding */
+      /* Each icon sits on its own square, the size of the dial, a small gap apart */
       header nav {
         display: flex;
+        gap: 0.5rem;
         margin-left: auto;
       }
       header :is(nav a, .loop) {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 52px;
-        height: 52px;
+        width: 68px;
+        height: 68px;
         color: inherit;
         background: color-mix(in srgb, var(--bg, Canvas) 90%, transparent);
         text-decoration: none;
       }
-      /* The music toggle sits snug beside the dial, level with its middle */
+      /* The music toggle sits beside the dial, as close as the logos sit to each other */
       .loop {
-        align-self: center;
-        margin-left: -1rem;
+        margin-left: -0.5rem;
         padding: 0;
         border: 0;
         font: inherit;
         cursor: pointer;
       }
-      /* Tighter boxes on phones, still big enough to tap */
+      /* Smaller squares on phones, to match the smaller dial */
       @media (max-width: 640px) {
         header :is(nav a, .loop) {
-          width: 44px;
-          height: 44px;
+          width: 51px;
+          height: 51px;
         }
         /* The bars match the height of the hour in the smaller dial */
         .loop svg {
