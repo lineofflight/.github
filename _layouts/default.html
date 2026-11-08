@@ -87,7 +87,7 @@ layout: compress
         gap: 0.5rem 1rem;
         font-family: "iA Writer Mono", monospace;
       }
-      /* Each icon sits on its own square, the size of the dial, a small gap apart */
+      /* Each icon gets a tap target the size of the dial, a small gap apart */
       header nav {
         display: flex;
         gap: 0.5rem;
@@ -100,7 +100,6 @@ layout: compress
         width: 68px;
         height: 68px;
         color: inherit;
-        background: color-mix(in srgb, var(--bg, Canvas) 90%, transparent);
         text-decoration: none;
       }
       /* The music toggle sits beside the dial, as close as the logos sit to each other */
@@ -108,6 +107,7 @@ layout: compress
         margin-left: -0.5rem;
         padding: 0;
         border: 0;
+        background: none;
         font: inherit;
         cursor: pointer;
       }
@@ -117,13 +117,8 @@ layout: compress
           width: 51px;
           height: 51px;
         }
-        /* The bars match the height of the hour in the smaller dial */
-        .loop svg {
-          width: 14px;
-          height: 14px;
-        }
       }
-      /* Level bars: faint while the music is off, full text colour while it plays */
+      /* Speaker: faint while the music is off, full text colour with sound waves while it plays */
       .loop svg {
         opacity: 0.3;
       }
@@ -132,6 +127,12 @@ layout: compress
       }
       .loop[aria-pressed="true"] svg {
         opacity: 1;
+      }
+      .loop-wave {
+        display: none;
+      }
+      .loop[aria-pressed="true"] .loop-wave {
+        display: block;
       }
       .pixel {
         --pixel-delay: 0ms;
@@ -271,14 +272,13 @@ layout: compress
       footer span {
         white-space: nowrap;
       }
-      /* Near-opaque panels keep text readable over the background art */
+      /* Text sits straight on the background art */
       p,
       footer > *,
       footer .company-info,
       footer .footer-email {
         width: fit-content;
         padding: 0.15em 0.5rem;
-        background: color-mix(in srgb, var(--bg, Canvas) 90%, transparent);
       }
       @media (min-width: 1025px) {
         .footer-bar {
@@ -307,7 +307,6 @@ layout: compress
         width: 68px;
         height: 68px;
         image-rendering: pixelated;
-        background: color-mix(in srgb, var(--bg, Canvas) 90%, transparent);
         cursor: grab;
         touch-action: none;
       }
@@ -584,8 +583,9 @@ layout: compress
     <header>
       <canvas class="dial" width="17" height="17" role="slider" tabindex="0" aria-label="Time of day" aria-valuemin="0" aria-valuemax="23" title="Time of day"></canvas>
       <button class="loop" type="button" aria-pressed="false" aria-label="Play music" title="Play music">
-        <svg viewBox="0 0 14 14" width="21" height="21" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
-          <path d="M0 9h2v5H0ZM4 6h2v8H4ZM8 3h2v11H8ZM12 0h2v14h-2Z"/>
+        <svg viewBox="0 0 16 16" width="26" height="26" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
+          <path d="M6 0h2v16H6ZM4 2h2v12H4ZM0 4h4v8H0Z"/>
+          <path class="loop-wave" d="M10 6h2v4h-2ZM12 2h2v2h-2ZM14 4h2v8h-2ZM12 12h2v2h-2Z"/>
         </svg>
       </button>
       <nav>
