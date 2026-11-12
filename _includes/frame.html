@@ -26,7 +26,8 @@
 
         /* Average the source pixels under each cell ourselves rather than letting the
            browser downscale, so every browser gets the same pixels and the sub-cell
-           offsets always shift the sampling */
+           offsets always shift the sampling. Each frame keeps its pixels too, so the
+           ripple below can move them about cell by cell */
         function pixelate(src, dx, dy) {
             var off = document.createElement("canvas");
             off.width = sw;
@@ -67,7 +68,7 @@
                 }
             }
             octx.putImageData(out, 0, 0);
-            return off;
+            return { image: off, pixels: d };
         }
 
         /* Pages without a figure get the border alone */
@@ -100,14 +101,21 @@
             /* Whole blocks that cover the screen, overflowing each edge by less than a block */
             var cols = Math.ceil(w / block);
             var rows = Math.ceil(h / block);
+            /* Each figure pixel spans a whole number of grid blocks */
+            var scale = Math.ceil(cover / block);
+            var x = Math.floor((w - cols * block) / 2);
+            var y = Math.floor((h - rows * block) / 2);
             grid = {
+                dpr: dpr,
                 block: block,
                 cols: cols,
                 rows: rows,
-                /* Each figure pixel spans a whole number of grid blocks */
-                scale: Math.ceil(cover / block),
-                x: Math.floor((w - cols * block) / 2),
-                y: Math.floor((h - rows * block) / 2)
+                x: x,
+                y: y,
+                /* The figure covers the grid, centered on whole blocks */
+                cell: scale * block,
+                left: x + Math.floor((cols - sw * scale) / 2) * block,
+                top: y + Math.floor((rows - sh * scale) / 2) * block
             };
             /* Line page content up one block inside the border */
             var root = document.documentElement.style;
@@ -123,13 +131,9 @@
 
             var frame = frames[currentFrame];
             if (frame) {
-                /* Cover the grid, centered on whole blocks */
-                var n = grid.scale;
-                var col = Math.floor((grid.cols - sw * n) / 2);
-                var row = Math.floor((grid.rows - sh * n) / 2);
                 ctx.imageSmoothingEnabled = false;
                 ctx.globalAlpha = 0.35;
-                ctx.drawImage(frame, grid.x + col * b, grid.y + row * b, sw * n * b, sh * n * b);
+                ctx.drawImage(awake || pointer ? ripple(frame) : frame.image, grid.left, grid.top, sw * grid.cell, sh * grid.cell);
             }
 
             /* Border sits on top, on the second ring of blocks */
@@ -155,6 +159,407 @@
             currentFrame = (currentFrame + 1 + Math.floor(Math.random() * (frames.length - 1))) % frames.length;
             render();
             setTimeout(tick, 600);
+        }
+
+        /* The pointer is a drop of water on the figure. Cells under it bulge as if seen
+           through the drop, and as it moves it sends out rings that carry the picture
+           outward a cell as they pass, lit a palette step on the crest and dimmed a step
+           in the trough behind. Everything moves in whole cells and stays on the palette */
+        var rings = [];
+        /* How far a ring spreads each step, in cells, and how many cells the drop spans from its middle */
+        var spread = 0.3;
+        var lens = 2.8;
+        /* A quick flick knocks cells clean out. They drip down as square drops, then
+           pop back into place with a plop. Their home cells stay empty meanwhile */
+        var drops = [];
+        var loose = new Uint8Array(sw * sh);
+        /* Where the pointer is now and where it was a step ago, in cells */
+        var pointer = null;
+        var awake = false;
+        var clock = 0;
+        var spare = 0;
+        /* The rippled figure is drawn at one pixel per cell, then scaled up like the frames */
+        var surface = document.createElement("canvas");
+        surface.width = sw;
+        surface.height = sh;
+        var surfaceCtx = surface.getContext("2d");
+        var shown = surfaceCtx.createImageData(sw, sh);
+        /* The strongest ring passing over each cell, positive on a crest and negative in a
+           trough, and the way out from that ring's center */
+        var swell = new Float32Array(sw * sh);
+        var outX = new Int8Array(sw * sh);
+        var outY = new Int8Array(sw * sh);
+
+        function ripple(frame) {
+            swell.fill(0);
+            rings.forEach(function (r) {
+                if (r.age < 0) return;
+                var radius = r.age * spread;
+                var fade = r.strength * (1 - radius / r.reach);
+                for (var j = Math.max(0, Math.floor(r.y - radius - 2)); j < Math.min(sh, r.y + radius + 2); j++) {
+                    for (var i = Math.max(0, Math.floor(r.x - radius - 2)); i < Math.min(sw, r.x + radius + 2); i++) {
+                        var dx = i + 0.5 - r.x;
+                        var dy = j + 0.5 - r.y;
+                        var dist = Math.sqrt(dx * dx + dy * dy);
+                        var band = dist - radius;
+                        var a = band > -0.75 && band < 0.75 ? fade : band > -1.75 && band < 0 ? -fade : 0;
+                        var k = j * sw + i;
+                        if (!a || Math.abs(a) <= Math.abs(swell[k]) || dist < 0.01) continue;
+                        swell[k] = a;
+                        outX[k] = Math.round(dx / dist);
+                        outY[k] = Math.round(dy / dist);
+                    }
+                }
+            });
+            var src = frame.pixels;
+            var dst = shown.data;
+            for (var j = 0; j < sh; j++) {
+                for (var i = 0; i < sw; i++) {
+                    var k = j * sw + i;
+                    var x = i;
+                    var y = j;
+                    var a = swell[k];
+                    /* A crest shows the cell just inside it, so the picture rides outward with the ring */
+                    if (a > 0.15) {
+                        x -= outX[k];
+                        y -= outY[k];
+                    }
+                    var light = a > 0.45 ? step : a < -0.45 ? -step : 0;
+                    /* Under the drop, each cell shows one nearer the middle, so the middle swells */
+                    if (pointer) {
+                        var lx = i + 0.5 - pointer.x;
+                        var ly = j + 0.5 - pointer.y;
+                        var far = Math.sqrt(lx * lx + ly * ly);
+                        if (far < lens) {
+                            var pull = Math.sqrt(far / lens);
+                            x = Math.floor(pointer.x + lx * pull);
+                            y = Math.floor(pointer.y + ly * pull);
+                        }
+                    }
+                    dst[k * 4 + 3] = 0;
+                    if (x < 0 || y < 0 || x >= sw || y >= sh || loose[y * sw + x]) continue;
+                    var s = (y * sw + x) * 4;
+                    if (!src[s + 3]) continue;
+                    /* The array clamps, so a step past black or white stays on the palette */
+                    dst[k * 4] = src[s] + light;
+                    dst[k * 4 + 1] = src[s + 1] + light;
+                    dst[k * 4 + 2] = src[s + 2] + light;
+                    dst[k * 4 + 3] = 255;
+                }
+            }
+            drops.forEach(function (d) {
+                var x = Math.round(d.x);
+                var y = Math.round(d.y);
+                if (x < 0 || y < 0 || x >= sw || y >= sh) return;
+                var o = (y * sw + x) * 4;
+                for (var c = 0; c < 4; c++) dst[o + c] = d.colour[c];
+            });
+            surfaceCtx.putImageData(shown, 0, 0);
+            return surface;
+        }
+
+        function painted(i, j) {
+            var frame = frames[currentFrame];
+            return i >= 0 && j >= 0 && i < sw && j < sh && !loose[j * sw + i] && frame.pixels[(j * sw + i) * 4 + 3] > 0;
+        }
+
+        /* A ring spreads until it reaches its size, fading as it goes. A negative age holds it back a few steps */
+        function ring(x, y, strength, reach, age) {
+            rings.push({ x: x, y: y, strength: strength, reach: reach, age: age || 0 });
+            if (rings.length > 40) rings.shift();
+        }
+
+        function knock(i, j, vx, vy) {
+            var k = j * sw + i;
+            var o = k * 4;
+            var pixels = frames[currentFrame].pixels;
+            loose[k] = 1;
+            drops.push({
+                home: k,
+                x: i,
+                y: j,
+                vx: vx,
+                vy: vy,
+                life: 25 + Math.random() * 35,
+                colour: [pixels[o], pixels[o + 1], pixels[o + 2], 255]
+            });
+        }
+
+        /* A tap or click drops a stone in: two rings, and a few cells splash up */
+        function splash(x, y) {
+            ring(x, y, 1.2, 13);
+            ring(x, y, 0.8, 9, -8);
+            var thrown = 0;
+            for (var n = 0; n < 9 && thrown < 4 && drops.length < 60; n++) {
+                var i = Math.floor(x) + n % 3 - 1;
+                var j = Math.floor(y) + Math.floor(n / 3) - 1;
+                if (!painted(i, j) || Math.random() < 0.4) continue;
+                knock(i, j, (i - x + 0.5) * 0.2, -0.3 - Math.random() * 0.2);
+                thrown++;
+            }
+            if (!sound) missed = { x: x, y: y, at: performance.now() };
+            plop(x, y, 1);
+            wake();
+        }
+
+        /* One step of the rings and the drops, sixty a second. Says whether everything has settled */
+        function advance() {
+            var moved = false;
+            if (pointer) {
+                var mx = pointer.x - pointer.px;
+                var my = pointer.y - pointer.py;
+                var speed = Math.sqrt(mx * mx + my * my);
+                if (speed > 0) {
+                    moved = true;
+                    /* Drop a ring every cell or so of the path, bigger the faster the pointer goes */
+                    pointer.trail += speed;
+                    if (pointer.trail > 1.5) {
+                        pointer.trail = 0;
+                        ring(pointer.x, pointer.y, Math.min(1, 0.4 + speed * 0.6), 4 + 3.25 * Math.min(speed, 2));
+                    }
+                    /* Crossing into a painted cell gives a soft bloop */
+                    var i = Math.floor(pointer.x);
+                    var j = Math.floor(pointer.y);
+                    if (i !== pointer.i || j !== pointer.j) {
+                        pointer.i = i;
+                        pointer.j = j;
+                        if (painted(i, j)) bloop(pointer.x, pointer.y);
+                    }
+                    /* Fast enough and the cells around the pointer come loose, flung along with it */
+                    if (speed > 1.2) {
+                        for (var c = 0; c < 9 && drops.length < 60; c++) {
+                            var u = i + c % 3 - 1;
+                            var v = j + Math.floor(c / 3) - 1;
+                            if (!painted(u, v) || Math.random() > (speed - 1.2) * 0.15) continue;
+                            knock(u, v, mx * (0.25 + Math.random() * 0.2) + (Math.random() - 0.5) * 0.15, my * 0.3 - Math.random() * 0.15);
+                        }
+                    }
+                }
+                pointer.px = pointer.x;
+                pointer.py = pointer.y;
+            }
+
+            rings = rings.filter(function (r) {
+                return ++r.age * spread < r.reach;
+            });
+
+            /* Drops fall and run out of time, then pop back home with a little ring */
+            drops = drops.filter(function (d) {
+                d.vy += 0.015;
+                d.x += d.vx;
+                d.y += d.vy;
+                d.vx *= 0.97;
+                if (--d.life > 0) return true;
+                loose[d.home] = 0;
+                var hx = d.home % sw + 0.5;
+                var hy = Math.floor(d.home / sw) + 0.5;
+                ring(hx, hy, 0.6, 4);
+                plop(hx, hy, 0.5);
+                return false;
+            });
+
+            return !moved && !drops.length && !rings.length;
+        }
+
+        function animate(now) {
+            /* Step at a fixed rate whatever the display's refresh rate, and catch up a little after a stall */
+            spare = Math.min(spare + now - clock, 100);
+            clock = now;
+            var stepped = false;
+            while (spare >= 1000 / 60) {
+                spare -= 1000 / 60;
+                if (advance()) awake = false;
+                stepped = true;
+            }
+            if (stepped) render();
+            if (awake) requestAnimationFrame(animate);
+        }
+
+        /* Frames only run while something moves */
+        function wake() {
+            if (awake || !frames.length) return;
+            awake = true;
+            clock = performance.now();
+            spare = 0;
+            requestAnimationFrame(animate);
+        }
+
+        /* Sound effects get a mix of their own. Browsers only start audio after a
+           gesture, so it opens on the first press, tap or key; until then moving over
+           the figure stays silent. An iPhone's silent switch mutes them */
+        var sound = null;
+        var hush = {};
+        /* A finger only counts as a gesture as it lifts, after its splash has already
+           gone by in silence. That first plop is caught up once the sound opens */
+        var missed = null;
+        /* C minor pentatonic from G3 to C5: the higher up the screen a cell sits, the
+           higher its note */
+        var notes = [196, 233.08, 261.63, 311.13, 349.23, 392, 466.16, 523.25];
+
+        function unlock() {
+            var AudioContext = window.AudioContext || window.webkitAudioContext;
+            /* Outside a gesture the browser would only refuse, and complain */
+            if (!AudioContext || navigator.userActivation && !navigator.userActivation.isActive) return;
+            /* Timed before the context opens, which can take a moment */
+            var caught = missed && performance.now() - missed.at < 1000 ? missed : null;
+            missed = null;
+            if (!sound) {
+                var audio = new AudioContext();
+                var out = audio.createGain();
+                out.gain.value = 0.75;
+                /* A click peaks around -14 dBFS and the rest sit lower. This catches the
+                   peaks when several land at once */
+                var limiter = audio.createDynamicsCompressor();
+                limiter.threshold.value = -6;
+                limiter.knee.value = 6;
+                limiter.ratio.value = 12;
+                limiter.attack.value = 0.002;
+                limiter.release.value = 0.08;
+                out.connect(limiter).connect(audio.destination);
+                /* A low note alone barely moves a laptop or phone speaker, so every tone
+                   carries a quiet second and third harmonic the speaker can play, and the
+                   ear still hears the low pitch */
+                var wave = audio.createPeriodicWave(new Float32Array([0, 0, 0, 0]), new Float32Array([0, 1, 0.25, 0.08]));
+                sound = { ctx: audio, out: out, wave: wave };
+            }
+            if (sound.ctx.state !== "running") sound.ctx.resume();
+            if (caught) plop(caught.x, caught.y, 1);
+        }
+
+        /* Rate limit each kind of sound, so a flurry of cells comes out as a patter,
+           never a buzz. Returns the time to play at, or nothing */
+        function cue(kind, gap) {
+            /* Safari starts a context made in the gesture as suspended, a moment before
+               it runs. What is queued on it meanwhile plays once it does */
+            if (!sound || sound.ctx.state === "closed") return;
+            /* A hair ahead, so the attack never lands in the past */
+            var t = sound.ctx.currentTime + 0.02;
+            if (t < (hush[kind] || 0)) return;
+            hush[kind] = t + gap;
+            return t;
+        }
+
+        /* A voice panned to where its cell sits across the screen */
+        function voice(x, t, peak, attack, decay) {
+            var gain = sound.ctx.createGain();
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.linearRampToValueAtTime(peak, t + attack);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+            if (sound.ctx.createStereoPanner) {
+                var pan = sound.ctx.createStereoPanner();
+                pan.pan.value = Math.max(-0.5, Math.min(0.5, (x / sw) - 0.5));
+                gain.connect(pan).connect(sound.out);
+            } else {
+                gain.connect(sound.out);
+            }
+            return gain;
+        }
+
+        function tone(from, to, glide, gain, t, decay) {
+            var osc = sound.ctx.createOscillator();
+            osc.setPeriodicWave(sound.wave);
+            osc.frequency.setValueAtTime(from, t);
+            osc.frequency.exponentialRampToValueAtTime(to, t + glide);
+            osc.connect(gain);
+            osc.start(t);
+            osc.stop(t + decay + 0.01);
+        }
+
+        /* The note for a cell's height, wandering up to a step either way */
+        function pitch(y, wander) {
+            var row = Math.max(0, Math.min(1, 1 - y / sh));
+            var k = Math.round(row * (notes.length - 1) + wander);
+            return notes[Math.max(0, Math.min(notes.length - 1, k))];
+        }
+
+        /* A bubble: a low note that slides up as it fades. Each one differs a little in
+           tuning, slide and length, so a run of them never sounds like one sample */
+        function plop(x, y, level) {
+            var t = cue("plop", 0.05 + Math.random() * 0.04);
+            if (t === undefined) return;
+            var note = pitch(y, 0) * (0.99 + Math.random() * 0.02);
+            var decay = 0.14 + Math.random() * 0.08;
+            tone(note, note * (1.25 + Math.random() * 0.2), 0.05 + Math.random() * 0.04, voice(x, t, 0.55 * level, 0.005, decay), t, decay);
+        }
+
+        /* Moving over the figure: now and then a soft bloop, sometimes with a smaller
+           one just after, so it patters like water rather than ticking along */
+        function bloop(x, y) {
+            var t = cue("bloop", 0.2 + Math.random() * 0.2);
+            if (t === undefined || Math.random() < 0.3) return;
+            var note = pitch(y, Math.random() * 4 - 2);
+            var decay = 0.1 + Math.random() * 0.08;
+            tone(note, note * (1.06 + Math.random() * 0.12), 0.07, voice(x, t, 0.22 + Math.random() * 0.12, 0.012, decay), t, decay);
+            if (Math.random() < 0.3) {
+                var after = t + 0.05 + Math.random() * 0.05;
+                var echo = pitch(y, 2 + Math.random() * 2);
+                tone(echo, echo * 1.1, 0.05, voice(x, after, 0.15, 0.008, 0.08), after, 0.08);
+            }
+        }
+
+        /* Follow the pointer in cells, from its position on the screen */
+        function aim(clientX, clientY) {
+            if (!grid) return;
+            var x = (clientX * grid.dpr - grid.left) / grid.cell;
+            var y = (clientY * grid.dpr - grid.top) / grid.cell;
+            if (!pointer) pointer = { x: x, y: y, px: x, py: y, i: Math.floor(x), j: Math.floor(y), trail: 0 };
+            pointer.x = x;
+            pointer.y = y;
+            wake();
+        }
+
+        /* A press starts afresh where it lands, so it never reads as a jump from the last spot */
+        function press(clientX, clientY) {
+            pointer = null;
+            aim(clientX, clientY);
+            if (pointer && frames.length) splash(pointer.x, pointer.y);
+        }
+
+        function lift() {
+            if (!pointer) return;
+            pointer = null;
+            render();
+        }
+
+        /* Every listener is passive and the canvas takes no pointer events, so links, text
+           selection, the dial and scrolling carry on as before. A mouse or pen counts
+           while it hovers. A finger counts while it touches, followed with touch events:
+           the browser cancels a touch pointer the moment a drag could pan, even where
+           nothing scrolls, but keeps reporting touches while it scrolls. A second finger
+           means a pinch, which leaves the figure alone */
+        if (canvas.dataset.figure && !prefersReduced) {
+            var passive = { passive: true };
+            window.addEventListener("pointermove", function (e) {
+                if (e.isPrimary && e.pointerType !== "touch") aim(e.clientX, e.clientY);
+            }, passive);
+            window.addEventListener("pointerdown", function (e) {
+                unlock();
+                if (e.isPrimary && e.pointerType !== "touch" && !e.button) press(e.clientX, e.clientY);
+            }, passive);
+            window.addEventListener("keydown", unlock, passive);
+            /* A finger only counts as a gesture once it lifts */
+            window.addEventListener("pointerup", unlock, passive);
+            window.addEventListener("pointercancel", function (e) {
+                if (e.pointerType !== "touch") lift();
+            }, passive);
+            document.addEventListener("pointerout", function (e) {
+                if (!e.relatedTarget && e.pointerType !== "touch") lift();
+            }, passive);
+            window.addEventListener("touchstart", function (e) {
+                unlock();
+                if (e.touches.length === 1) press(e.touches[0].clientX, e.touches[0].clientY);
+                else lift();
+            }, passive);
+            window.addEventListener("touchmove", function (e) {
+                if (e.touches.length === 1 && pointer) aim(e.touches[0].clientX, e.touches[0].clientY);
+                else lift();
+            }, passive);
+            window.addEventListener("touchend", function (e) {
+                unlock();
+                if (!e.touches.length) lift();
+            }, passive);
+            window.addEventListener("touchcancel", lift, passive);
+            window.addEventListener("blur", lift);
         }
 
         window.addEventListener("resize", resize);
