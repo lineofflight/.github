@@ -62,10 +62,18 @@ layout: compress
       :root {
         color-scheme: light dark;
       }
+      /* Dragging a finger over the figure slid the whole page with the iOS
+         rubber band, so the page doesn't bounce. Manipulation drops double-tap
+         zoom, so repeated taps on the figure don't zoom; pinch still does */
+      html {
+        overscroll-behavior: none;
+        touch-action: manipulation;
+      }
       *, *::before, *::after {
         box-sizing: border-box;
       }
       body {
+        overscroll-behavior: none;
         display: flex;
         flex-direction: column;
         height: 100vh;
@@ -128,6 +136,8 @@ layout: compress
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        /* Its own scroll stops at the ends instead of moving the page */
+        overscroll-behavior: contain;
         margin: 4.5rem 0 3rem;
         /* Clicking around the figure kept selecting the greeting. The footer stays
            selectable so the email can still be copied */
