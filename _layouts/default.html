@@ -128,6 +128,10 @@ layout: compress
         min-height: 0;
         overflow-y: auto;
         margin: 4.5rem 0 3rem;
+        /* Clicking around the figure kept selecting the greeting. The footer stays
+           selectable so the email can still be copied */
+        -webkit-user-select: none;
+        user-select: none;
       }
       img {
         max-width: min(100%, 60vw);
