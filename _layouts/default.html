@@ -93,7 +93,7 @@ layout: compress
         gap: 0.5rem;
         margin-left: auto;
       }
-      header :is(nav a, .loop) {
+      header nav a {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -102,37 +102,12 @@ layout: compress
         color: inherit;
         text-decoration: none;
       }
-      /* The music toggle sits beside the dial, as close as the logos sit to each other */
-      .loop {
-        margin-left: -0.5rem;
-        padding: 0;
-        border: 0;
-        background: none;
-        font: inherit;
-        cursor: pointer;
-      }
       /* Smaller squares on phones, to match the smaller dial */
       @media (max-width: 640px) {
-        header :is(nav a, .loop) {
+        header nav a {
           width: 51px;
           height: 51px;
         }
-      }
-      /* Speaker: faint while the music is off, full text colour with sound waves while it plays */
-      .loop svg {
-        opacity: 0.3;
-      }
-      .loop:is(:hover, :focus-visible) svg {
-        opacity: 0.8;
-      }
-      .loop[aria-pressed="true"] svg {
-        opacity: 1;
-      }
-      .loop-wave {
-        display: none;
-      }
-      .loop[aria-pressed="true"] .loop-wave {
-        display: block;
       }
       .pixel {
         --pixel-delay: 0ms;
@@ -582,12 +557,6 @@ layout: compress
     {% include frame.html figure=page.figure %}
     <header>
       <canvas class="dial" width="17" height="17" role="slider" tabindex="0" aria-label="Time of day" aria-valuemin="0" aria-valuemax="23" title="Time of day"></canvas>
-      <button class="loop" type="button" aria-pressed="false" aria-label="Play music" title="Play music">
-        <svg viewBox="0 0 16 16" width="26" height="26" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
-          <path d="M6 0h2v16H6ZM4 2h2v12H4ZM0 4h4v8H0Z"/>
-          <path class="loop-wave" d="M10 6h2v4h-2ZM12 2h2v2h-2ZM14 4h2v8h-2ZM12 12h2v2h-2Z"/>
-        </svg>
-      </button>
       <nav>
         <a href="https://huggingface.co/lineofflight" target="_blank" rel="noopener" aria-label="Hugging Face" title="Hugging Face">
           <svg viewBox="0 0 20 20" width="26" height="26" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">
@@ -674,6 +643,5 @@ layout: compress
         <a class="footer-email" href="mailto:company@lineofflig.ht">company@lineofflig.ht</a>
       </div>
     </footer>
-    {% include loop.html %}
   </body>
 </html>
